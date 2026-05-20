@@ -202,9 +202,9 @@ Current production simulation opens explicit windows mainly for spell casts that
 
 For simulator continuity, lethal combat windows remain counterable by default. This is a heuristic abstraction for emergency interaction such as bounce, fog-like effects, free answers, or other broad counterplay; it is not claiming a normal counterspell can counter combat damage under real Magic rules.
 
-Stack Objects v1 is a thin simulator wrapper around Interaction Windows v1. `StackObject` and `StackManager` let the engine create one stack-like object, resolve it through the existing interaction logic, then move it to history for debug output and tests.
+Stack Objects v1 is a thin simulator wrapper around Interaction Windows v1. `StackObject` and `StackManager` currently follow a push -> resolvePending -> history flow: the interaction engine creates a stack-like object, pushes it, immediately resolves one pending object through the existing interaction logic, then moves it to history for debug output and tests.
 
-This is not the full MTG stack. The simulator does not yet pass priority around the table, allow nested responses, or perform full LIFO multi-object resolution beyond basic push/pop support. Stack Objects v1 is a deterministic bridge so debug output and tests can describe when an object is created, pushed, resolving, stopped or resolved, and moved to history.
+This is not the full MTG stack. The simulator does not yet pass priority around the table, allow nested responses, or perform full LIFO multi-object resolution beyond basic push/pop support. Stack Objects v1 is a deterministic bridge so debug output and tests can describe when an object is created, pushed, resolving, stopped or resolved, and moved to history. Priority Passes v1 is the next planned step.
 
 ## Card Roles And Sequencing
 
@@ -487,7 +487,7 @@ Run interaction-window checks:
 npm run test:interaction
 ```
 
-These deterministic tests cover high-impact spell counters, removal against combo engines, protection defending an important play, lethal combat windows, existing combo-attempt stopping, StackObject creation, StackManager push/pop behavior, single-object stack resolution, and stack history.
+These deterministic tests cover high-impact spell counters, removal against combo engines, protection defending an important play, lethal combat windows, unanswered lethal combat resolution, existing combo-attempt stopping, StackObject creation and malformed-window guards, StackManager push/pop behavior, single-object stack resolution, TurnEngine/CombatEngine integration paths, and stack history.
 
 ## Debug Simulation
 
@@ -507,7 +507,7 @@ Debug output prints important events such as tutor choices, stack object creatio
 - Add richer control, aggro, ramp, and voltron fixture decks for strategy regression tests.
 - Add partner/background commander handling.
 - Add more exact card behaviors and triggered abilities.
-- Grow Stack Objects v1 and Interaction Windows v1 into a fuller stack and priority model.
+- Add Priority Passes v1 between StackObject push and `resolvePending`, then grow Interaction Windows v1 into a fuller stack and priority model.
 - Improve mulligan heuristics.
 - Add richer matchup summaries.
 - Add SQLite cache once the local JSON store becomes too small.

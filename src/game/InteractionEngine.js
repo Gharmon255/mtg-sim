@@ -1,5 +1,5 @@
 const { CardRoleResolver } = require('../cards/CardRoleResolver');
-const { createInteractionWindow } = require('./InteractionWindow');
+const { ACTION_TYPES, WINDOW_TYPES, createInteractionWindow } = require('./InteractionWindow');
 const { StackObject } = require('./StackObject');
 
 class InteractionEngine {
@@ -9,14 +9,19 @@ class InteractionEngine {
 
   attemptToStop(gameState, actingPlayer, attempt) {
     const window = createInteractionWindow(actingPlayer, attempt);
-    if (gameState && gameState.stackManager && !attempt.skipStackObject) {
-      const stackObject = StackObject.fromWindow(window, gameState);
-      gameState.recordDebug && gameState.recordDebug(`Stack object created: ${stackObject.id} ${stackObject.label()}.`);
-      gameState.stackManager.push(stackObject);
-      gameState.recordDebug && gameState.recordDebug(`Stack object pushed: ${stackObject.id}. Stack size ${gameState.stackManager.size()}.`);
-      return gameState.stackManager.resolveTop(gameState, this);
+    if (gameState && gameState.stackManager && !(attempt && attempt.skipStackObject)) {
+      this.pushInteractionStackObject(gameState, window);
+      return gameState.stackManager.resolvePending(gameState, this);
     }
     return this.resolveWindow(gameState, actingPlayer, window);
+  }
+
+  pushInteractionStackObject(gameState, window) {
+    const stackObject = StackObject.fromWindow(window, gameState);
+    gameState.recordDebug && gameState.recordDebug(`Stack object created: ${stackObject.id} ${stackObject.label()}.`);
+    gameState.stackManager.push(stackObject);
+    gameState.recordDebug && gameState.recordDebug(`Stack object pushed: ${stackObject.id}. Stack size ${gameState.stackManager.size()}.`);
+    return stackObject;
   }
 
   resolveStackObject(gameState, stackObject) {
@@ -24,6 +29,14 @@ class InteractionEngine {
   }
 
   resolveWindow(gameState, actingPlayer, window) {
+    if (!window || typeof window.toAttempt !== 'function') {
+      gameState && gameState.recordDebug && gameState.recordDebug('Interaction window skipped: missing or malformed window.');
+      return { stopped: false, reason: 'invalid_window' };
+    }
+    if (!actingPlayer) {
+      gameState && gameState.recordDebug && gameState.recordDebug(`Interaction window skipped: missing source player for ${window.label || 'unknown action'}.`);
+      return { stopped: false, reason: 'missing_source_player' };
+    }
     const normalizedAttempt = window.toAttempt();
     recordWindowOpened(gameState, window);
     if (actingPlayer.metrics) {
@@ -97,12 +110,12 @@ function canAnswer(card, attempt) {
   const counter = attempt.canBeCountered && (tags.has('counterspell') || tags.has('free-spell'));
   const removal = attempt.canBeRemoved && tags.has('removal');
   const protection = attempt.canBeProtected && tags.has('protection');
-  if (attempt.kind === 'combo') return counter || removal;
-  if (attempt.kind === 'boardwipe') return counter || protection;
-  if (attempt.kind === 'lethal' || attempt.kind === 'commander-lethal') return removal || protection || counter;
-  if (attempt.kind === 'stax' || attempt.kind === 'wincon' || attempt.kind === 'high-impact') return counter || removal;
-  if (attempt.interactionWindow && attempt.interactionWindow.windowType === 'activated-ability') return removal || counter;
-  if (attempt.interactionWindow && attempt.interactionWindow.windowType === 'triggered-ability') return counter || removal;
+  if (attempt.kind === ACTION_TYPES.COMBO) return counter || removal;
+  if (attempt.kind === ACTION_TYPES.BOARDWIPE) return counter || protection;
+  if (attempt.kind === ACTION_TYPES.LETHAL || attempt.kind === ACTION_TYPES.COMMANDER_LETHAL) return removal || protection || counter;
+  if ([ACTION_TYPES.STAX, ACTION_TYPES.WINCON, ACTION_TYPES.HIGH_IMPACT].includes(attempt.kind)) return counter || removal;
+  if (attempt.interactionWindow && attempt.interactionWindow.windowType === WINDOW_TYPES.ACTIVATED_ABILITY) return removal || counter;
+  if (attempt.interactionWindow && attempt.interactionWindow.windowType === WINDOW_TYPES.TRIGGERED_ABILITY) return counter || removal;
   return counter || removal;
 }
 
@@ -124,9 +137,9 @@ function answerScore(card, attempt, profile, priority) {
   const tags = new Set(card.tags || []);
   let score = priority || 0;
   if (tags.has('free-spell')) score += 25;
-  if (tags.has('counterspell') && ['combo', 'boardwipe', 'stax', 'wincon', 'high-impact'].includes(attempt.kind)) score += 40;
-  if (tags.has('removal') && ['combo', 'lethal', 'commander-lethal'].includes(attempt.kind)) score += 35;
-  if (tags.has('protection') && ['boardwipe', 'lethal', 'commander-lethal'].includes(attempt.kind)) score += 30;
+  if (tags.has('counterspell') && [ACTION_TYPES.COMBO, ACTION_TYPES.BOARDWIPE, ACTION_TYPES.STAX, ACTION_TYPES.WINCON, ACTION_TYPES.HIGH_IMPACT].includes(attempt.kind)) score += 40;
+  if (tags.has('removal') && [ACTION_TYPES.COMBO, ACTION_TYPES.LETHAL, ACTION_TYPES.COMMANDER_LETHAL].includes(attempt.kind)) score += 35;
+  if (tags.has('protection') && [ACTION_TYPES.BOARDWIPE, ACTION_TYPES.LETHAL, ACTION_TYPES.COMMANDER_LETHAL].includes(attempt.kind)) score += 30;
   score += (profile.controlPriority || 0) * 0.1 + (profile.estimatedBracket || 1) * 2;
   score -= Number(card.manaValue || 0);
   return score;
@@ -137,10 +150,10 @@ function answerPriority(card, attempt, player, roleResolver) {
   if (tags.has('counterspell')) return roleResolver.counterPriority(card, attempt, player);
   if (tags.has('protection')) return roleResolver.protectionPriority(card, attempt, player);
   if (tags.has('removal')) {
-    if (attempt.kind === 'combo') return 84;
-    if (attempt.kind === 'lethal' || attempt.kind === 'commander-lethal') return 82;
-    if (attempt.kind === 'stax') return 70;
-    if (attempt.kind === 'wincon' || attempt.kind === 'high-impact') return 68;
+    if (attempt.kind === ACTION_TYPES.COMBO) return 84;
+    if (attempt.kind === ACTION_TYPES.LETHAL || attempt.kind === ACTION_TYPES.COMMANDER_LETHAL) return 82;
+    if (attempt.kind === ACTION_TYPES.STAX) return 70;
+    if (attempt.kind === ACTION_TYPES.WINCON || attempt.kind === ACTION_TYPES.HIGH_IMPACT) return 68;
     return 45;
   }
   if (tags.has('free-spell')) return 62;
@@ -151,13 +164,13 @@ function answerThreshold(card, attempt, player, roleResolver) {
   const tags = new Set(card.tags || []);
   if (tags.has('counterspell')) return roleResolver.counterThreshold(player, attempt);
   if (tags.has('protection')) return 55;
-  if (tags.has('removal')) return ['combo', 'lethal', 'commander-lethal'].includes(attempt.kind) ? 50 : 62;
+  if (tags.has('removal')) return [ACTION_TYPES.COMBO, ACTION_TYPES.LETHAL, ACTION_TYPES.COMMANDER_LETHAL].includes(attempt.kind) ? 50 : 62;
   return 65;
 }
 
 function consumeProtection(player, attempt, roleResolver) {
   if (!attempt.canBeProtected && attempt.canBeProtected !== undefined) return null;
-  if (!['combo', 'boardwipe', 'lethal', 'commander-lethal', 'wincon', 'high-impact'].includes(attempt.kind)) return null;
+  if (![ACTION_TYPES.COMBO, ACTION_TYPES.BOARDWIPE, ACTION_TYPES.LETHAL, ACTION_TYPES.COMMANDER_LETHAL, ACTION_TYPES.WINCON, ACTION_TYPES.HIGH_IMPACT].includes(attempt.kind)) return null;
   const candidates = player.hand
     .map((card, index) => ({ card, index, priority: protectionAnswerPriority(card, attempt, player, roleResolver) }))
     .filter((entry) => entry.priority >= 55 && canPayInteraction(player, entry.card))
@@ -202,7 +215,7 @@ function recordInteractionPaymentDebug(gameState, player, card) {
 function protectionAnswerPriority(card, attempt, player, roleResolver) {
   const tags = new Set(card.tags || []);
   if (tags.has('protection')) return roleResolver.protectionPriority(card, attempt, player);
-  if (tags.has('counterspell') && attempt.kind === 'combo') return roleResolver.counterPriority(card, { ...attempt, protectingWin: true }, player);
+  if (tags.has('counterspell') && attempt.kind === ACTION_TYPES.COMBO) return roleResolver.counterPriority(card, { ...attempt, protectingWin: true }, player);
   if (tags.has('free-spell')) return 60;
   return 0;
 }
@@ -247,13 +260,13 @@ function recordInteraction(player, card, attempt, roleResolver) {
     if (priority >= 60) player.metrics.successfulProtection = (player.metrics.successfulProtection || 0) + 1;
     else player.metrics.wastedProtection = (player.metrics.wastedProtection || 0) + 1;
   }
-  if (attempt.kind === 'high-impact') player.metrics.highImpactInteractionUsed = (player.metrics.highImpactInteractionUsed || 0) + 1;
+  if (attempt.kind === ACTION_TYPES.HIGH_IMPACT) player.metrics.highImpactInteractionUsed = (player.metrics.highImpactInteractionUsed || 0) + 1;
 }
 
 function recordStoppedAttempt(player, attempt) {
-  if (attempt.kind === 'combo') player.metrics.comboAttemptsStopped = (player.metrics.comboAttemptsStopped || 0) + 1;
-  if (attempt.kind === 'lethal' || attempt.kind === 'commander-lethal') player.metrics.lethalAttacksStopped = (player.metrics.lethalAttacksStopped || 0) + 1;
-  if (attempt.kind === 'high-impact' || attempt.kind === 'stax' || attempt.kind === 'wincon') {
+  if (attempt.kind === ACTION_TYPES.COMBO) player.metrics.comboAttemptsStopped = (player.metrics.comboAttemptsStopped || 0) + 1;
+  if (attempt.kind === ACTION_TYPES.LETHAL || attempt.kind === ACTION_TYPES.COMMANDER_LETHAL) player.metrics.lethalAttacksStopped = (player.metrics.lethalAttacksStopped || 0) + 1;
+  if (attempt.kind === ACTION_TYPES.HIGH_IMPACT || attempt.kind === ACTION_TYPES.STAX || attempt.kind === ACTION_TYPES.WINCON) {
     player.metrics.highImpactSpellsStopped = (player.metrics.highImpactSpellsStopped || 0) + 1;
   }
 }

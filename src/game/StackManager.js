@@ -29,16 +29,23 @@ class StackManager {
     this.objects = [];
   }
 
-  resolveTop(gameState, interactionEngine) {
+  resolvePending(gameState, interactionEngine) {
     const object = this.peek();
-    if (!object) return { stopped: false };
+    if (!object) {
+      recordDebug(gameState, 'Stack resolve skipped: no pending stack object.');
+      return { stopped: false, reason: 'empty_stack' };
+    }
     recordDebug(gameState, `Stack object resolving: ${object.id} ${object.label()}.`);
-    const result = interactionEngine.resolveStackObject
-      ? interactionEngine.resolveStackObject(gameState, object)
-      : { stopped: false };
+    const result = isResolvableStackObject(object)
+      ? resolveObject(gameState, interactionEngine, object)
+      : { stopped: false, reason: 'invalid_stack_object' };
+    if (!isResolvableStackObject(object)) {
+      recordDebug(gameState, `Stack object invalid: ${object.id} has no usable interaction window.`);
+    }
     object.markResolved(result);
     this.pop();
     this.resolvedObjects.push(object);
+    recordResolvedMetric(object);
     if (object.stopped) {
       recordDebug(gameState, `Stack object stopped: ${object.id} ${object.label()} by ${result.by || 'interaction'}.`);
     } else {
@@ -47,10 +54,32 @@ class StackManager {
     recordDebug(gameState, `Stack object moved to history: ${object.id}.`);
     return result;
   }
+
+  resolveTop(gameState, interactionEngine) {
+    return this.resolvePending(gameState, interactionEngine);
+  }
 }
 
 function recordDebug(gameState, message) {
   if (gameState && gameState.recordDebug) gameState.recordDebug(message);
+}
+
+function isResolvableStackObject(object) {
+  return Boolean(object && typeof object.isValid === 'function' && object.isValid());
+}
+
+function resolveObject(gameState, interactionEngine, object) {
+  if (!interactionEngine || typeof interactionEngine.resolveStackObject !== 'function') {
+    recordDebug(gameState, `Stack object ${object.id} has no interaction resolver; resolving by default.`);
+    return { stopped: false, reason: 'no_interaction_resolver' };
+  }
+  return interactionEngine.resolveStackObject(gameState, object) || { stopped: false };
+}
+
+function recordResolvedMetric(object) {
+  const player = object && object.sourcePlayer;
+  if (!player || !player.metrics) return;
+  player.metrics.stackObjectsResolved = (player.metrics.stackObjectsResolved || 0) + 1;
 }
 
 module.exports = { StackManager };

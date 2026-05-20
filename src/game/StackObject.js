@@ -23,6 +23,19 @@ class StackObject {
   }
 
   static fromWindow(window, gameState = null, values = {}) {
+    if (!window || typeof window !== 'object') {
+      return new StackObject({
+        ...values,
+        window: null,
+        createdAtTurn: values.createdAtTurn !== undefined ? values.createdAtTurn : gameState && gameState.turn,
+        turnIndex: values.turnIndex !== undefined ? values.turnIndex : gameState && gameState.turn,
+        debug: {
+          ...(values.debug || {}),
+          invalidWindow: true,
+          invalidReason: 'missing or malformed interaction window'
+        }
+      });
+    }
     return new StackObject({
       ...values,
       window,
@@ -41,6 +54,10 @@ class StackObject {
 
   label() {
     return (this.window && this.window.label) || (this.sourceCard && this.sourceCard.name) || this.actionType || this.id;
+  }
+
+  isValid() {
+    return Boolean(this.window && typeof this.window.toAttempt === 'function' && this.sourcePlayer);
   }
 
   markResolved(result = {}) {
