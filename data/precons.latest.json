@@ -1,0 +1,37 @@
+{
+  "updatedAt": "2026-05-15",
+  "sources": [
+    {
+      "setName": "Secrets of Strixhaven",
+      "setCode": "SOC",
+      "releaseDate": "2026-04-24",
+      "sourceUrl": "https://magic.wizards.com/en/news/announcements/secrets-of-strixhaven-commander-decklists",
+      "decks": [
+        { "title": "Lorehold Spirit", "colorIdentity": ["W", "R"] },
+        { "title": "Prismari Artistry", "colorIdentity": ["U", "R"] },
+        { "title": "Quandrix Unlimited", "colorIdentity": ["U", "G"] },
+        { "title": "Witherbloom Pestilence", "colorIdentity": ["B", "G"] },
+        { "title": "Silverquill Influence", "colorIdentity": ["W", "B"] }
+      ]
+    },
+    {
+      "setName": "Teenage Mutant Ninja Turtles",
+      "setCode": "TMC",
+      "releaseDate": "2026-03-06",
+      "sourceUrl": "https://magic.wizards.com/en/news/announcements/teenage-mutant-ninja-turtles-commander-decklist",
+      "decks": [
+        { "title": "Turtle Power!", "colorIdentity": ["W", "U", "B", "R", "G"] }
+      ]
+    },
+    {
+      "setName": "Lorwyn Eclipsed",
+      "setCode": "ECC",
+      "releaseDate": "2026-01-23",
+      "sourceUrl": "https://magic.wizards.com/en/news/announcements/lorwyn-eclipsed-commander-decklists",
+      "decks": [
+        { "title": "Dance of the Elements", "colorIdentity": ["W", "U", "B", "R", "G"] },
+        { "title": "Blight Curse", "colorIdentity": ["B", "R", "G"] }
+      ]
+    }
+  ]
+}

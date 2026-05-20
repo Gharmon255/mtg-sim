@@ -1,0 +1,75 @@
+// COMMANDER
+1 Atraxa, Praetors' Voice
+
+// DECK
+1 Sol Ring
+1 Arcane Signet
+1 Command Tower
+1 Exotic Orchard
+1 City of Brass
+1 Mana Confluence
+1 Reflecting Pool
+1 Hallowed Fountain
+1 Watery Grave
+1 Temple Garden
+1 Godless Shrine
+1 Overgrown Tomb
+1 Breeding Pool
+1 Raffine's Tower
+1 Indatha Triome
+1 Zagoth Triome
+1 Flooded Strand
+1 Polluted Delta
+1 Windswept Heath
+1 Marsh Flats
+1 Verdant Catacombs
+1 Misty Rainforest
+4 Plains
+5 Island
+4 Swamp
+6 Forest
+1 Counterspell
+1 Swan Song
+1 Dovin's Veto
+1 Swords to Plowshares
+1 Path to Exile
+1 Cultivate
+1 Beast Within
+1 Assassin's Trophy
+1 Abrupt Decay
+1 Anguished Unmaking
+1 Demonic Tutor
+1 Vampiric Tutor
+1 Enlightened Tutor
+1 Mystical Tutor
+1 Worldly Tutor
+1 Rhystic Study
+1 Mystic Remora
+1 The One Ring
+1 Esper Sentinel
+1 Sylvan Library
+1 Guardian Project
+1 Beast Whisperer
+1 Heroic Intervention
+1 Teferi's Protection
+1 Cyclonic Rift
+1 Toxic Deluge
+1 Supreme Verdict
+1 Farewell
+1 Walking Ballista
+1 Heliod, Sun-Crowned
+1 The Ozolith
+1 Doubling Season
+1 Branching Evolution
+1 Hardened Scales
+1 Vorinclex, Monstrous Raider
+1 Craterhoof Behemoth
+1 Triumph of the Hordes
+1 Finale of Devastation
+1 Lightning Greaves
+1 Swiftfoot Boots
+1 Birds of Paradise
+1 Llanowar Elves
+1 Nature's Lore
+1 Three Visits
+1 Kodama's Reach

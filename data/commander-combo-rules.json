@@ -1,0 +1,120 @@
+[
+  {
+    "commanderTag": "counters",
+    "checks": [
+      {
+        "name": "Counter doubler plus Walking Ballista win line",
+        "requiresAny": ["Walking Ballista"],
+        "requiresTags": ["counter-doubler"],
+        "result": "Possible lethal or infinite damage line depending on counters, mana, and replacement effects.",
+        "type": "possible-combo",
+        "confidence": "medium",
+        "bracketImpact": 1
+      }
+    ]
+  },
+  {
+    "commanderTextIncludes": "untap",
+    "checks": [
+      {
+        "name": "Commander untap engine",
+        "requiresTags": ["mana-rock"],
+        "result": "Commander untap text plus mana rocks can enable loop or burst mana lines.",
+        "type": "possible-combo",
+        "confidence": "low",
+        "bracketImpact": 1
+      }
+    ]
+  },
+  {
+    "commanderTextIncludes": "treasure",
+    "checks": [
+      {
+        "name": "Treasure commander combo shell",
+        "requiresTags": ["sacrifice-outlet"],
+        "result": "Treasure production plus sacrifice outlets can support loop engines.",
+        "type": "possible-combo",
+        "confidence": "low",
+        "bracketImpact": 1
+      }
+    ]
+  },
+  {
+    "commanderTextIncludes": "costs less",
+    "checks": [
+      {
+        "name": "Cost reducer commander storm shell",
+        "requiresTags": ["storm", "draw"],
+        "result": "Cost reduction plus card draw/storm pieces can enable long combo turns.",
+        "type": "possible-combo",
+        "confidence": "low",
+        "bracketImpact": 1
+      }
+    ]
+  },
+  {
+    "commanderTextIncludes": "copy",
+    "checks": [
+      {
+        "name": "Copy commander loop shell",
+        "requiresTags": ["untapper"],
+        "result": "Copy effects plus untappers can create repeated ETB, spell-copy, or token loops.",
+        "type": "possible-combo",
+        "confidence": "low",
+        "bracketImpact": 1
+      }
+    ]
+  },
+  {
+    "commanderTextIncludes": "sacrifice",
+    "checks": [
+      {
+        "name": "Sacrifice commander aristocrats shell",
+        "requiresTags": ["aristocrats"],
+        "result": "Commander sacrifice text plus death triggers can become a loop engine.",
+        "type": "possible-combo",
+        "confidence": "low",
+        "bracketImpact": 1
+      }
+    ]
+  },
+  {
+    "commanderTextIncludes": "gain life",
+    "checks": [
+      {
+        "name": "Lifegain commander outlet shell",
+        "requiresTags": ["lifedrain", "mana-outlet"],
+        "result": "Lifegain triggers plus drain or outlet pieces may create deterministic loops.",
+        "type": "possible-combo",
+        "confidence": "low",
+        "bracketImpact": 1
+      }
+    ]
+  },
+  {
+    "commanderTextIncludes": "enters",
+    "checks": [
+      {
+        "name": "ETB commander blink shell",
+        "requiresTags": ["blink"],
+        "result": "ETB text plus blink effects can enable repeatable value or combo loops.",
+        "type": "possible-combo",
+        "confidence": "low",
+        "bracketImpact": 1
+      }
+    ]
+  },
+  {
+    "commanderTextIncludes": "dies",
+    "checks": [
+      {
+        "name": "Death trigger commander loop shell",
+        "requiresTags": ["sacrifice-outlet", "reanimation"],
+        "result": "Death triggers plus sacrifice and recursion pieces can enable loops.",
+        "type": "possible-combo",
+        "confidence": "low",
+        "bracketImpact": 1
+      }
+    ]
+  }
+]

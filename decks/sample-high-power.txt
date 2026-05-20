@@ -1,0 +1,103 @@
+// COMMANDER
+1 Kenrith, the Returned King
+
+// DECK
+1 Sol Ring
+1 Mox Opal
+1 Mana Vault
+1 Chrome Mox
+1 Mox Diamond
+1 Mox Amber
+1 Lotus Petal
+1 Basalt Monolith
+1 Grim Monolith
+1 Rings of Brighthearth
+1 Power Artifact
+1 Isochron Scepter
+1 Dramatic Reversal
+1 Walking Ballista
+1 Thassa's Oracle
+1 Tainted Pact
+1 Demonic Tutor
+1 Mystical Tutor
+1 Worldly Tutor
+1 Green Sun's Zenith
+1 Finale of Devastation
+1 Rhystic Study
+1 Mystic Remora
+1 The One Ring
+1 Sylvan Library
+1 Force of Will
+1 Force of Negation
+1 Pact of Negation
+1 Swan Song
+1 Cyclonic Rift
+1 Toxic Deluge
+1 Fierce Guardianship
+1 Veil of Summer
+1 Birds of Paradise
+1 Llanowar Elves
+1 Bloom Tender
+1 Carpet of Flowers
+1 Smothering Tithe
+1 Command Tower
+1 City of Brass
+1 Mana Confluence
+1 Exotic Orchard
+1 Ancient Tomb
+1 Gemstone Caverns
+1 Breeding Pool
+1 Watery Grave
+1 Stomping Ground
+1 Overgrown Tomb
+1 Steam Vents
+1 Misty Rainforest
+1 Polluted Delta
+1 Wooded Foothills
+1 Verdant Catacombs
+1 Scalding Tarn
+1 Prismatic Vista
+1 Forest
+1 Island
+1 Swamp
+1 Mountain
+1 Brainstorm
+1 Ponder
+1 Preordain
+1 Underworld Breach
+1 Brain Freeze
+1 Lion's Eye Diamond
+1 Sensei's Divining Top
+1 Bolas's Citadel
+1 Aetherflux Reservoir
+1 Food Chain
+1 Squee, the Immortal
+1 Eternal Scourge
+1 Drannith Magistrate
+1 Opposition Agent
+1 Orcish Bowmasters
+1 Dauthi Voidwalker
+1 Rule of Law
+1 Deafening Silence
+1 Winter Orb
+1 Static Orb
+1 Necropotence
+1 Esper Sentinel
+1 Enlightened Tutor
+1 Vampiric Tutor
+1 Gamble
+1 Deflecting Swat
+1 Deadly Rollick
+1 Flawless Maneuver
+1 Nature's Claim
+1 Chain of Vapor
+1 Ad Nauseam
+1 Kiki-Jiki, Mirror Breaker
+1 Zealous Conscripts
+1 Splinter Twin
+1 Pestermite
+1 Deceiver Exarch
+1 Heliod, Sun-Crowned
+1 All Will Be One
+1 The Ozolith
+1 Hardened Scales

@@ -1,0 +1,73 @@
+// COMMANDER
+1 Bristly Bill, Spine Sower
+
+// DECK
+1 Adventuring Gear
+1 Aggro Amalgam
+1 Apex Altisaur
+1 Avenger of Zendikar
+1 Badgermole Cub
+1 Birds of Paradise
+1 Branching Evolution
+1 Bristlebane Battler
+1 Bugenhagen, Wise Elder
+1 Cultivate
+1 Cycle of Renewal
+1 Donnie's Bō
+1 Doubling Season
+1 Eladamri, Korvecdal
+1 Elven Chorus
+1 Elven Farsight
+1 Emeritus of Abundance / Regrowth
+1 Emil, Vastlands Roamer
+1 Entish Restoration
+1 Eternal Witness
+1 Evolving Wilds
+1 Flopsie, Bumi's Buddy
+31 Forest
+1 Forgotten Ancient
+1 Ghalta, Primal Hunger
+1 Glorious Decay
+1 Guardian Augmenter
+1 Hardened Scales
+1 Heralds of the Shredder
+1 Heroic Intervention
+1 Hornet Queen
+1 Incubation Druid
+1 Infirmary Healer / Stream of Life
+1 Krang, Utrom Warlord
+1 Leatherhead, Iron Gator
+1 Leatherhead, Swamp Stalker
+1 Level Up
+1 Lightning Greaves
+1 Llanowar Elves
+1 Loot, Exuberant Explorer
+1 Michelangelo, Mutant BFF
+1 Michelangelo, the Heart
+1 Michelangelo, Weirdness to 11
+1 Nature's Lore
+1 Noxious Newt
+1 Paradise Mantle
+1 Quilled Greatwurm
+1 Regal Behemoth
+1 Rishkar, Peema Renegade
+1 Sandman, Shifting Scoundrel
+1 Sapling Nursery
+1 Seedborn Muse
+1 Seedship Agrarian
+1 Selvala, Heart of the Wilds
+1 Slash Clone
+1 Slumbering Trudge
+1 Snakeskin Veil
+1 Summoning Materia
+1 Super Combo
+1 Terramorphic Expanse
+1 The Cabbage Merchant
+1 The Ooze
+1 The Ozolith
+1 The Walls of Ba Sing Se
+1 True Ancestry
+1 Vibrant Cityscape
+1 Walking Ballista
+1 Wayward Swordtooth
+1 Weather Maker

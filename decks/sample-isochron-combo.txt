@@ -1,0 +1,55 @@
+// COMMANDER
+1 Kenrith, the Returned King
+
+// DECK
+1 Isochron Scepter
+1 Dramatic Reversal
+1 Sol Ring
+1 Arcane Signet
+1 Mana Vault
+1 Fellwar Stone
+1 Basalt Monolith
+1 Grim Monolith
+1 Walking Ballista
+1 Blue Sun's Zenith
+1 Counterspell
+1 Swan Song
+1 Cyclonic Rift
+1 Demonic Tutor
+1 Mystical Tutor
+1 Enlightened Tutor
+1 Rhystic Study
+1 Mystic Remora
+1 Ponder
+1 Preordain
+1 Brainstorm
+1 Command Tower
+1 City of Brass
+1 Mana Confluence
+1 Exotic Orchard
+1 Breeding Pool
+1 Watery Grave
+1 Tropical Island
+1 Underground Sea
+1 Misty Rainforest
+1 Polluted Delta
+1 Flooded Strand
+1 Forest
+1 Island
+1 Swamp
+1 Birds of Paradise
+1 Llanowar Elves
+1 Bloom Tender
+1 Eternal Witness
+1 Nature's Claim
+1 Veil of Summer
+1 Force of Will
+1 Pact of Negation
+1 The One Ring
+1 Sensei's Divining Top
+1 Rings of Brighthearth
+1 Thassa's Oracle
+1 Tainted Pact
+1 Chrome Mox
+1 Lotus Petal
+49 Island

@@ -1,0 +1,22 @@
+// COMMANDER
+1 Urza, Lord High Artificer
+
+// DECK
+1 Island
+1 Island
+1 Command Tower
+1 Sol Ring
+1 Mana Crypt
+1 Mana Vault
+1 Grim Monolith
+1 Basalt Monolith
+1 Mox Amber
+1 Mox Opal
+1 Lotus Petal
+1 Jeweled Lotus
+1 Arcane Signet
+1 Counterspell
+1 Rhystic Study
+1 Isochron Scepter
+1 Dramatic Reversal
+1 Walking Ballista

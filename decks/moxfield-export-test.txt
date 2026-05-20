@@ -1,0 +1,22 @@
+Commander
+1 Kenrith, the Returned King
+
+Mainboard
+1x Sol Ring
+1x Arcane Signet
+1x Command Tower
+1x Counterspell
+1x Swords to Plowshares
+1x Thassa's Oracle
+1x Tainted Pact
+1x Forest
+1x Island
+1x Swamp
+1x Mountain
+1x Plains
+
+Sideboard
+1x Black Lotus
+
+Maybeboard
+1x Mana Crypt

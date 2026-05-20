@@ -1,0 +1,156 @@
+[
+  {
+    "name": "Thassa's Oracle Consultation",
+    "cardsRequired": ["Thassa's Oracle", "Demonic Consultation"],
+    "optionalCards": [],
+    "result": "Win the game with an empty or nearly empty library.",
+    "type": "oracle-combo",
+    "speed": 2,
+    "bracketImpact": 5,
+    "explanation": "Resolve Thassa's Oracle and exile the library with Demonic Consultation before the trigger resolves.",
+    "confidence": "high"
+  },
+  {
+    "name": "Thassa's Oracle Pact",
+    "cardsRequired": ["Thassa's Oracle", "Tainted Pact"],
+    "optionalCards": [],
+    "result": "Win the game with an empty or nearly empty library.",
+    "type": "oracle-combo",
+    "speed": 2,
+    "bracketImpact": 5,
+    "explanation": "Resolve Thassa's Oracle and exile the library with Tainted Pact before the trigger resolves.",
+    "confidence": "high"
+  },
+  {
+    "name": "Isochron Scepter Reversal",
+    "cardsRequired": ["Isochron Scepter", "Dramatic Reversal"],
+    "optionalCards": ["Sol Ring", "Arcane Signet", "Mana Crypt", "Basalt Monolith"],
+    "result": "Potential infinite mana with enough nonland mana sources.",
+    "type": "infinite-mana",
+    "speed": 3,
+    "bracketImpact": 4,
+    "explanation": "Imprint Dramatic Reversal on Isochron Scepter and repeatedly untap mana rocks that produce more than the activation costs.",
+    "confidence": "medium"
+  },
+  {
+    "name": "Kiki-Jiki Conscripts",
+    "cardsRequired": ["Kiki-Jiki, Mirror Breaker", "Zealous Conscripts"],
+    "optionalCards": [],
+    "result": "Infinite hasty creature tokens.",
+    "type": "infinite-tokens",
+    "speed": 5,
+    "bracketImpact": 4,
+    "explanation": "Copy Zealous Conscripts to untap Kiki-Jiki and repeat.",
+    "confidence": "high"
+  },
+  {
+    "name": "Kiki-Jiki Restoration Angel",
+    "cardsRequired": ["Kiki-Jiki, Mirror Breaker", "Restoration Angel"],
+    "optionalCards": [],
+    "result": "Infinite hasty creature tokens.",
+    "type": "infinite-tokens",
+    "speed": 5,
+    "bracketImpact": 4,
+    "explanation": "Copy Restoration Angel to blink and untap Kiki-Jiki repeatedly.",
+    "confidence": "high"
+  },
+  {
+    "name": "Splinter Twin Pestermite",
+    "cardsRequired": ["Splinter Twin", "Pestermite"],
+    "optionalCards": [],
+    "result": "Infinite hasty creature tokens.",
+    "type": "infinite-tokens",
+    "speed": 4,
+    "bracketImpact": 4,
+    "explanation": "Enchant Pestermite with Splinter Twin and untap it with each new token.",
+    "confidence": "high"
+  },
+  {
+    "name": "Splinter Twin Deceiver Exarch",
+    "cardsRequired": ["Splinter Twin", "Deceiver Exarch"],
+    "optionalCards": [],
+    "result": "Infinite hasty creature tokens.",
+    "type": "infinite-tokens",
+    "speed": 4,
+    "bracketImpact": 4,
+    "explanation": "Enchant Deceiver Exarch with Splinter Twin and untap it with each new token.",
+    "confidence": "high"
+  },
+  {
+    "name": "Basalt Rings",
+    "cardsRequired": ["Basalt Monolith", "Rings of Brighthearth"],
+    "optionalCards": [],
+    "result": "Infinite colorless mana.",
+    "type": "infinite-mana",
+    "speed": 4,
+    "bracketImpact": 4,
+    "explanation": "Copy Basalt Monolith's untap ability to generate extra mana each loop.",
+    "confidence": "high"
+  },
+  {
+    "name": "Basalt Monument",
+    "cardsRequired": ["Basalt Monolith", "Forsaken Monument"],
+    "optionalCards": [],
+    "result": "Infinite colorless mana.",
+    "type": "infinite-mana",
+    "speed": 5,
+    "bracketImpact": 4,
+    "explanation": "Forsaken Monument increases Basalt Monolith's mana output enough to loop untaps profitably.",
+    "confidence": "high"
+  },
+  {
+    "name": "Heliod Ballista",
+    "cardsRequired": ["Walking Ballista", "Heliod, Sun-Crowned"],
+    "optionalCards": [],
+    "result": "Infinite damage with lifelink and counters.",
+    "type": "infinite-damage",
+    "speed": 4,
+    "bracketImpact": 4,
+    "explanation": "Give Walking Ballista lifelink, deal damage, gain life, and replace the counter.",
+    "confidence": "high"
+  },
+  {
+    "name": "Food Chain Squee",
+    "cardsRequired": ["Food Chain", "Squee, the Immortal"],
+    "optionalCards": [],
+    "result": "Infinite creature-only mana.",
+    "type": "infinite-mana",
+    "speed": 4,
+    "bracketImpact": 4,
+    "explanation": "Repeatedly cast and exile Squee with Food Chain for increasing mana.",
+    "confidence": "high"
+  },
+  {
+    "name": "Food Chain Eternal Scourge",
+    "cardsRequired": ["Food Chain", "Eternal Scourge"],
+    "optionalCards": [],
+    "result": "Infinite creature-only mana.",
+    "type": "infinite-mana",
+    "speed": 4,
+    "bracketImpact": 4,
+    "explanation": "Repeatedly cast and exile Eternal Scourge with Food Chain for increasing mana.",
+    "confidence": "high"
+  },
+  {
+    "name": "Breach Freeze LED",
+    "cardsRequired": ["Underworld Breach", "Brain Freeze", "Lion's Eye Diamond"],
+    "optionalCards": [],
+    "result": "Self-mill loop that can mill opponents or set up a win.",
+    "type": "infinite-mill",
+    "speed": 3,
+    "bracketImpact": 5,
+    "explanation": "Use Lion's Eye Diamond and escape Brain Freeze repeatedly with Underworld Breach.",
+    "confidence": "high"
+  },
+  {
+    "name": "Citadel Top Reservoir",
+    "cardsRequired": ["Sensei's Divining Top", "Bolas's Citadel", "Aetherflux Reservoir"],
+    "optionalCards": [],
+    "result": "Draw/cast loop into lethal Aetherflux Reservoir shots.",
+    "type": "infinite-draw",
+    "speed": 5,
+    "bracketImpact": 4,
+    "explanation": "Cast Sensei's Divining Top from the top of the library repeatedly while gaining life.",
+    "confidence": "high"
+  }
+]
