@@ -1,4 +1,5 @@
 const { CardRoleResolver } = require('../cards/CardRoleResolver');
+const { createInteractionWindow } = require('./InteractionWindow');
 
 class InteractionEngine {
   constructor(options = {}) {
@@ -6,30 +7,47 @@ class InteractionEngine {
   }
 
   attemptToStop(gameState, actingPlayer, attempt) {
-    gameState.recordDebug && gameState.recordDebug(`Interaction window: ${actingPlayer.name} attempts ${attempt.label}.`);
+    const window = createInteractionWindow(actingPlayer, attempt);
+    const normalizedAttempt = window.toAttempt();
+    recordWindowOpened(gameState, window);
+    if (actingPlayer.metrics) {
+      actingPlayer.metrics.interactionWindowsOpened = (actingPlayer.metrics.interactionWindowsOpened || 0) + 1;
+    }
     const opponents = gameState.opponentsOf(actingPlayer)
       .filter((opponent) => !opponent.eliminated)
       .sort((a, b) => interactionReadiness(b) - interactionReadiness(a));
+    if (gameState.recordDebug) {
+      const names = opponents.length ? opponents.map((opponent) => opponent.name).join(', ') : 'none';
+      gameState.recordDebug(`Interaction window responders: ${names}.`);
+    }
 
     for (const opponent of opponents) {
-      const answer = chooseAnswer(opponent, attempt, this.roleResolver);
-      if (!answer) continue;
-      const protectedAttempt = consumeProtection(actingPlayer, attempt, this.roleResolver);
-      consumeCard(opponent, answer);
-      recordInteraction(opponent, answer, attempt, this.roleResolver);
+      const answer = chooseAnswer(opponent, normalizedAttempt, this.roleResolver);
+      if (!answer) {
+        gameState.recordDebug && gameState.recordDebug(`${opponent.name} passes: no suitable response to ${window.label}.`);
+        continue;
+      }
+      gameState.recordDebug && gameState.recordDebug(`${opponent.name} chooses ${answer.name} for ${window.label}: ${answer.responseReason || 'highest available response score'}.`);
+      const protectedAttempt = consumeProtection(actingPlayer, normalizedAttempt, this.roleResolver);
+      if (!consumeCard(opponent, answer)) {
+        gameState.recordDebug && gameState.recordDebug(`${opponent.name} could not pay for ${answer.name}; response skipped.`);
+        continue;
+      }
+      recordInteraction(opponent, answer, normalizedAttempt, this.roleResolver);
       recordInteractionPaymentDebug(gameState, opponent, answer);
       if (protectedAttempt) {
-        gameState.record(`${actingPlayer.name} protects ${attempt.label} with ${protectedAttempt.name} from ${opponent.name}'s ${answer.name}.`);
+        gameState.record(`${actingPlayer.name} protects ${normalizedAttempt.label} with ${protectedAttempt.name} from ${opponent.name}'s ${answer.name}.`);
         recordInteractionPaymentDebug(gameState, actingPlayer, protectedAttempt);
-        gameState.recordDebug && gameState.recordDebug(`${protectedAttempt.name} used because ${attempt.label} was important to ${actingPlayer.name}'s plan.`);
+        gameState.recordDebug && gameState.recordDebug(`${protectedAttempt.name} used because ${normalizedAttempt.label} was important to ${actingPlayer.name}'s plan.`);
         continue;
       }
       const priority = answer.counterPriorityScore || answer.answerPriorityScore || 0;
-      gameState.record(`${opponent.name} stops ${actingPlayer.name}'s ${attempt.label} with ${answer.name}.`);
-      gameState.recordDebug && gameState.recordDebug(`${answer.name} used to stop ${attempt.label}. Priority score: ${priority}.`);
-      recordStoppedAttempt(opponent, attempt);
+      gameState.record(`${opponent.name} stops ${actingPlayer.name}'s ${normalizedAttempt.label} with ${answer.name}.`);
+      gameState.recordDebug && gameState.recordDebug(`${answer.name} used to stop ${normalizedAttempt.label}. Priority score: ${priority}.`);
+      recordStoppedAttempt(opponent, normalizedAttempt);
       return { stopped: true, by: opponent.name, card: answer.name };
     }
+    gameState.recordDebug && gameState.recordDebug(`Interaction window closes: ${window.label} resolves.`);
     return { stopped: false };
   }
 }
@@ -52,6 +70,7 @@ function chooseAnswer(player, attempt, roleResolver) {
   const threshold = answerThreshold(best.card, attempt, player, roleResolver);
   if (best.priority < threshold) return null;
   best.card.answerPriorityScore = best.priority;
+  best.card.responseReason = `${attempt.reason || 'important window'}; priority ${best.priority}, threshold ${threshold}`;
   if ((best.card.tags || []).includes('counterspell')) best.card.counterPriorityScore = best.priority;
   return best.card;
 }
@@ -59,11 +78,16 @@ function chooseAnswer(player, attempt, roleResolver) {
 function canAnswer(card, attempt) {
   if (isFalsePositiveManaSource(card)) return false;
   const tags = new Set(card.tags || []);
-  if (attempt.kind === 'combo') return tags.has('counterspell') || tags.has('removal') || tags.has('free-spell');
-  if (attempt.kind === 'boardwipe') return tags.has('counterspell') || tags.has('protection') || tags.has('free-spell');
-  if (attempt.kind === 'lethal' || attempt.kind === 'commander-lethal') return tags.has('removal') || tags.has('protection') || tags.has('counterspell') || tags.has('free-spell');
-  if (attempt.kind === 'stax' || attempt.kind === 'wincon' || attempt.kind === 'high-impact') return tags.has('counterspell') || tags.has('removal') || tags.has('free-spell');
-  return tags.has('counterspell') || tags.has('removal') || tags.has('free-spell');
+  const counter = attempt.canBeCountered && (tags.has('counterspell') || tags.has('free-spell'));
+  const removal = attempt.canBeRemoved && tags.has('removal');
+  const protection = attempt.canBeProtected && tags.has('protection');
+  if (attempt.kind === 'combo') return counter || removal;
+  if (attempt.kind === 'boardwipe') return counter || protection;
+  if (attempt.kind === 'lethal' || attempt.kind === 'commander-lethal') return removal || protection || counter;
+  if (attempt.kind === 'stax' || attempt.kind === 'wincon' || attempt.kind === 'high-impact') return counter || removal;
+  if (attempt.interactionWindow && attempt.interactionWindow.windowType === 'activated-ability') return removal || counter;
+  if (attempt.interactionWindow && attempt.interactionWindow.windowType === 'triggered-ability') return counter || removal;
+  return counter || removal;
 }
 
 function isFalsePositiveManaSource(card) {
@@ -116,6 +140,7 @@ function answerThreshold(card, attempt, player, roleResolver) {
 }
 
 function consumeProtection(player, attempt, roleResolver) {
+  if (!attempt.canBeProtected && attempt.canBeProtected !== undefined) return null;
   if (!['combo', 'boardwipe', 'lethal', 'commander-lethal', 'wincon', 'high-impact'].includes(attempt.kind)) return null;
   const candidates = player.hand
     .map((card, index) => ({ card, index, priority: protectionAnswerPriority(card, attempt, player, roleResolver) }))
@@ -136,6 +161,18 @@ function consumeProtection(player, attempt, roleResolver) {
   player.metrics.cardSequencingScoreTotal = (player.metrics.cardSequencingScoreTotal || 0) + protectionAnswerPriority(card, attempt, player, roleResolver);
   player.metrics.cardSequencingScoreCount = (player.metrics.cardSequencingScoreCount || 0) + 1;
   return card;
+}
+
+function recordWindowOpened(gameState, window) {
+  if (!gameState.recordDebug) return;
+  const source = window.sourcePlayer ? window.sourcePlayer.name : 'Unknown player';
+  const card = window.sourceCard ? ` from ${window.sourceCard.name}` : '';
+  const flags = [
+    window.canBeCountered ? 'counterable' : null,
+    window.canBeRemoved ? 'removable' : null,
+    window.canBeProtected ? 'protectable' : null
+  ].filter(Boolean).join(', ') || 'no standard responses';
+  gameState.recordDebug(`Interaction window opens [${window.windowType}/${window.actionType}]: ${source} attempts ${window.label}${card}. Impact ${window.impactScore}. ${flags}. Reason: ${window.reason}.`);
 }
 
 function recordInteractionPaymentDebug(gameState, player, card) {

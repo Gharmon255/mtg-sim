@@ -60,6 +60,7 @@ npm run strategy -- --deck ./decks/sample-thoracle-combo.txt
 npm run import:moxfield -- --input ./decks/moxfield-export-test.txt --output ./decks/imported/moxfield-export-test.txt
 npm run import:moxfield -- --url https://www.moxfield.com/decks/DECK_ID
 npm run test:strategies
+npm run test:interaction
 npm run report -- --deck ./decks/sample-casual.txt --opponents ./decks/sample-high-power.txt ./decks/sample-isochron-combo.txt
 npm run simulate -- --deck ./decks/precons/secrets-of-strixhaven-lorehold-spirit.txt --opponents ./decks/precons/lorwyn-eclipsed-blight-curse.txt --games 100 --seed demo
 npm run simulate -- --deck ./decks/precons/secrets-of-strixhaven-lorehold-spirit.txt --opponents ./decks/precons/lorwyn-eclipsed-blight-curse.txt ./decks/precons/teenage-mutant-ninja-turtles-turtle-power.txt ./decks/precons/secrets-of-strixhaven-lorehold-spirit.txt --games 100 --seed pod
@@ -178,10 +179,10 @@ The engine models a simplified Commander game:
 - Build an AI strategy profile for each deck from bracket, archetype, combo, mana, and tag analysis.
 - Use strategy-aware mulligans, tutor choices, casting priorities, threat selection, combo attempts, and simplified interaction.
 - Allow exact known combos and lower-confidence possible combo lines to win games when setup conditions are met.
-- Let opponents use a simplified counterplay system for combo wins, board wipes, and lethal attacks.
+- Let opponents use Interaction Windows v1, a simplified counterplay layer for combo wins, activated or triggered ability threats, high-impact spells, board wipes, and lethal attacks.
 - End when one player remains or the max turn limit is reached.
 
-It does not yet model the stack accurately, timing restrictions, replacement effects, triggered abilities, exact mana colors, priority, every combat rule, or exact Oracle text. Rules fidelity is intentionally incremental: validation should become strict before simulation becomes exact.
+It does not yet model the stack accurately, full priority passes, replacement effects, every triggered ability, every timing restriction, every combat rule, or exact Oracle text. Rules fidelity is intentionally incremental: validation should become strict before simulation becomes exact.
 
 ## Strategy Profiles
 
@@ -195,7 +196,9 @@ Profiles include archetype, bracket, aggression, combo, control, ramp, commander
 
 During simulation, profiles influence opening hand keeps, tutor targets, combat and removal targets, whether a deck holds interaction, when combo decks attempt wins, and whether opponents spend simplified counterplay to stop major plays.
 
-Simplified interaction windows currently cover combo attempts, high-impact spell casts, board wipes, lethal attacks, commander-lethal attacks, major stax pieces, and wincon casts.
+Interaction Windows v1 sits between the heuristic `InteractionEngine` and a future full stack/priority system. Each window records a source player, source card, action type, target when known, impact score, whether it can be countered/removed/protected, the reason it matters, and debug metadata. It covers spell-cast, activated ability, triggered ability, combat/lethal, combo attempt, and board wipe windows.
+
+This is not full MTG priority. The simulator does not yet pass priority around the table, build a stack of nested objects, or model every response timing rule. The window layer is a deterministic bridge so debug output and tests can describe when a meaningful response opportunity opens, who may respond, which answer was chosen, and why.
 
 ## Card Roles And Sequencing
 
@@ -472,6 +475,14 @@ npm run test:strategies
 
 This runs deterministic, loose behavior checks across combo, control, aggro, ramp, voltron, tokens, aristocrats, reanimator, stax, and midrange fixtures. The tests compare relative behavior, such as control using more interaction than aggro and combo attempting more combo wins than midrange.
 
+Run interaction-window checks:
+
+```bash
+npm run test:interaction
+```
+
+These deterministic tests cover high-impact spell counters, removal against combo engines, protection defending an important play, lethal combat windows, and existing combo-attempt stopping.
+
 ## Debug Simulation
 
 Use `--debug` for one-game tuning:
@@ -480,7 +491,7 @@ Use `--debug` for one-game tuning:
 npm run simulate -- --deck ./decks/sample-control.txt --opponents ./decks/sample-thoracle-combo.txt --games 1 --skipHydrate true --debug
 ```
 
-Debug output prints important events such as tutor choices, interaction windows, counterspells, removal, protection, attacks, combo attempts, and win conditions.
+Debug output prints important events such as tutor choices, interaction windows opening and closing, possible responders, selected responses, counterspells, removal, protection, attacks, combo attempts, and win conditions.
 
 ## Roadmap
 
@@ -490,7 +501,7 @@ Debug output prints important events such as tutor choices, interaction windows,
 - Add richer control, aggro, ramp, and voltron fixture decks for strategy regression tests.
 - Add partner/background commander handling.
 - Add more exact card behaviors and triggered abilities.
-- Model stack interaction and timing windows.
+- Grow Interaction Windows v1 into a fuller stack and priority model.
 - Improve mulligan heuristics.
 - Add richer matchup summaries.
 - Add SQLite cache once the local JSON store becomes too small.

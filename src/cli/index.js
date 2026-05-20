@@ -19,6 +19,7 @@ const { testBehaviorsCommand } = require('./commands/testBehaviors');
 const { testManaCommand } = require('./commands/testMana');
 const { testManaSourcesCommand } = require('./commands/testManaSources');
 const { testAbilitiesCommand } = require('./commands/testAbilities');
+const { testInteractionWindowsCommand } = require('./commands/testInteractionWindows');
 
 const commands = {
   validate: validateCommand,
@@ -42,7 +43,8 @@ const commands = {
   'test-behaviors': testBehaviorsCommand,
   'test-mana': testManaCommand,
   'test-mana-sources': testManaSourcesCommand,
-  'test-abilities': testAbilitiesCommand
+  'test-abilities': testAbilitiesCommand,
+  'test-interaction-windows': testInteractionWindowsCommand
 };
 
 function printHelp() {
@@ -70,6 +72,7 @@ Commands:
   test-mana
   test-mana-sources
   test-abilities
+  test-interaction-windows
   test
 
 Options:

@@ -30,7 +30,8 @@
     "test:behaviors": "node src/cli/index.js test-behaviors",
     "test:mana": "node src/cli/index.js test-mana",
     "test:mana:sources": "node src/cli/index.js test-mana-sources",
-    "test:abilities": "node src/cli/index.js test-abilities"
+    "test:abilities": "node src/cli/index.js test-abilities",
+    "test:interaction": "node src/cli/index.js test-interaction-windows"
   },
   "keywords": [
     "magic",
