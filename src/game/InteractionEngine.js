@@ -1,5 +1,6 @@
 const { CardRoleResolver } = require('../cards/CardRoleResolver');
 const { createInteractionWindow } = require('./InteractionWindow');
+const { StackObject } = require('./StackObject');
 
 class InteractionEngine {
   constructor(options = {}) {
@@ -8,6 +9,21 @@ class InteractionEngine {
 
   attemptToStop(gameState, actingPlayer, attempt) {
     const window = createInteractionWindow(actingPlayer, attempt);
+    if (gameState && gameState.stackManager && !attempt.skipStackObject) {
+      const stackObject = StackObject.fromWindow(window, gameState);
+      gameState.recordDebug && gameState.recordDebug(`Stack object created: ${stackObject.id} ${stackObject.label()}.`);
+      gameState.stackManager.push(stackObject);
+      gameState.recordDebug && gameState.recordDebug(`Stack object pushed: ${stackObject.id}. Stack size ${gameState.stackManager.size()}.`);
+      return gameState.stackManager.resolveTop(gameState, this);
+    }
+    return this.resolveWindow(gameState, actingPlayer, window);
+  }
+
+  resolveStackObject(gameState, stackObject) {
+    return this.resolveWindow(gameState, stackObject.sourcePlayer, stackObject.window);
+  }
+
+  resolveWindow(gameState, actingPlayer, window) {
     const normalizedAttempt = window.toAttempt();
     recordWindowOpened(gameState, window);
     if (actingPlayer.metrics) {

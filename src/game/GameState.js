@@ -1,3 +1,5 @@
+const { StackManager } = require('./StackManager');
+
 class GameState {
   constructor(players, options = {}) {
     this.players = players;
@@ -5,6 +7,8 @@ class GameState {
     this.maxTurns = options.maxTurns || 14;
     this.debug = Boolean(options.debug);
     this.events = [];
+    this.stackManager = options.stackManager || new StackManager();
+    this.stack = this.stackManager;
   }
 
   activePlayers() {

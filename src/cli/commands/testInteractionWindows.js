@@ -3,16 +3,23 @@ const { CombatEngine } = require('../../game/CombatEngine');
 const { GameState } = require('../../game/GameState');
 const { InteractionEngine } = require('../../game/InteractionEngine');
 const { ACTION_TYPES, WINDOW_TYPES, InteractionWindow, createInteractionWindow } = require('../../game/InteractionWindow');
+const { StackObject } = require('../../game/StackObject');
+const { StackManager } = require('../../game/StackManager');
 
 function testInteractionWindowsCommand() {
   const tests = [
     ['Interaction window model normalizes window types', windowModelNormalizes],
+    ['StackObject can be created from an InteractionWindow', stackObjectFromWindow],
+    ['StackManager push peek pop and size work', stackManagerBasics],
     ['Counterspell-like interaction stops high-impact spell', counterStopsHighImpactSpell],
     ['Removal-like interaction stops combo creature or engine', removalStopsComboEngine],
     ['Protection-like interaction defends important board wipe', protectionDefendsBoardWipe],
     ['Lethal combat window can still be stopped', lethalCombatWindowStops],
     ['Counterspell-like interaction can stop lethal combat by policy', counterStopsLethalCombatPolicy],
     ['Combo attempt stopping still works', comboAttemptStoppingStillWorks],
+    ['StackManager resolves high-impact spell through interaction', stackManagerResolvesHighImpactStop],
+    ['StackManager resolves lethal combat with current counter heuristic', stackManagerResolvesLethalCounter],
+    ['Stack history records stopped and resolved objects', stackHistoryRecordsOutcomes],
     ['Real CombatEngine path opens lethal combat interaction window', realCombatEngineOpensLethalWindow]
   ];
 
@@ -31,6 +38,38 @@ function testInteractionWindowsCommand() {
   }
   console.log(`Passed ${passed}/${tests.length} interaction window checks.`);
   return 0;
+}
+
+function stackObjectFromWindow() {
+  const player = fixturePlayer('Stack Player');
+  const window = createInteractionWindow(player, {
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: ACTION_TYPES.HIGH_IMPACT,
+    label: 'Rhystic Study',
+    sourceCard: spell('Rhystic Study', ['draw', 'high-impact'], 3),
+    impactScore: 80
+  });
+  const object = StackObject.fromWindow(window, { turn: 3 });
+  return object.sourcePlayer === player
+    && object.sourceCard.name === 'Rhystic Study'
+    && object.windowType === WINDOW_TYPES.SPELL_CAST
+    && object.actionType === ACTION_TYPES.HIGH_IMPACT
+    && object.impactScore === 80
+    && object.createdAtTurn === 3
+    && object.resolved === false;
+}
+
+function stackManagerBasics() {
+  const manager = new StackManager();
+  const first = new StackObject({ actionType: ACTION_TYPES.HIGH_IMPACT, windowType: WINDOW_TYPES.SPELL_CAST });
+  const second = new StackObject({ actionType: ACTION_TYPES.COMBO, windowType: WINDOW_TYPES.COMBO_ATTEMPT });
+  manager.push(first);
+  manager.push(second);
+  const okBeforePop = manager.size() === 2 && manager.peek() === second;
+  const popped = manager.pop();
+  const okAfterPop = popped === second && manager.size() === 1 && manager.peek() === first;
+  manager.clear();
+  return okBeforePop && okAfterPop && manager.size() === 0;
 }
 
 function windowModelNormalizes() {
@@ -68,6 +107,87 @@ function counterStopsHighImpactSpell() {
     && result.card === 'Counterspell'
     && control.metrics.counterspellsUsed === 1
     && debugIncludes(gameState, 'Interaction window opens [spell-cast/high-impact]');
+}
+
+function stackManagerResolvesHighImpactStop() {
+  const acting = fixturePlayer('Value Deck');
+  const control = fixturePlayer('Control Deck', {
+    primaryArchetype: 'control',
+    controlPriority: 90,
+    estimatedBracket: 4
+  });
+  control.hand.push(spell('Counterspell', ['counterspell'], 2));
+  const gameState = new GameState([acting, control], { debug: true });
+  const window = createInteractionWindow(acting, {
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: ACTION_TYPES.HIGH_IMPACT,
+    label: 'Rhystic Study',
+    sourceCard: spell('Rhystic Study', ['draw', 'high-impact'], 3),
+    impactScore: 80,
+    reason: 'early draw engine may snowball'
+  });
+  gameState.stackManager.push(StackObject.fromWindow(window, gameState));
+  const result = gameState.stackManager.resolveTop(gameState, new InteractionEngine());
+  const history = gameState.stackManager.history[0];
+  return result.stopped
+    && result.card === 'Counterspell'
+    && gameState.stackManager.size() === 0
+    && history
+    && history.resolved
+    && history.stopped
+    && history.result.card === 'Counterspell'
+    && debugIncludes(gameState, 'Stack object resolving');
+}
+
+function stackManagerResolvesLethalCounter() {
+  const aggro = fixturePlayer('Aggro Deck');
+  const defender = fixturePlayer('Defender', { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  defender.hand.push(spell('Counterspell', ['counterspell'], 2));
+  const gameState = new GameState([aggro, defender], { debug: true });
+  const window = createInteractionWindow(aggro, {
+    windowType: WINDOW_TYPES.COMBAT,
+    actionType: ACTION_TYPES.LETHAL,
+    label: 'lethal attack',
+    targetPlayer: defender,
+    impactScore: 92,
+    canBeCountered: true,
+    canBeRemoved: true,
+    canBeProtected: true,
+    reason: 'combat damage would eliminate the defender'
+  });
+  gameState.stackManager.push(StackObject.fromWindow(window, gameState));
+  const result = gameState.stackManager.resolveTop(gameState, new InteractionEngine());
+  return result.stopped
+    && result.card === 'Counterspell'
+    && defender.metrics.counterspellsUsed === 1
+    && gameState.stackManager.history[0].actionType === ACTION_TYPES.LETHAL;
+}
+
+function stackHistoryRecordsOutcomes() {
+  const acting = fixturePlayer('Actor');
+  const responder = fixturePlayer('Responder', { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  responder.hand.push(spell('Counterspell', ['counterspell'], 2));
+  const gameState = new GameState([acting, responder], { debug: true });
+  const engine = new InteractionEngine();
+  engine.attemptToStop(gameState, acting, createInteractionWindow(acting, {
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: ACTION_TYPES.HIGH_IMPACT,
+    label: 'Rhystic Study',
+    sourceCard: spell('Rhystic Study', ['draw', 'high-impact'], 3),
+    impactScore: 80
+  }));
+  engine.attemptToStop(gameState, acting, createInteractionWindow(acting, {
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: ACTION_TYPES.HIGH_IMPACT,
+    label: 'Esper Sentinel',
+    sourceCard: spell('Esper Sentinel', ['draw', 'high-impact'], 1),
+    impactScore: 70
+  }));
+  return gameState.stackManager.history.length === 2
+    && gameState.stackManager.history[0].stopped
+    && !gameState.stackManager.history[1].stopped
+    && gameState.stackManager.history.every((object) => object.resolved)
+    && gameState.stackManager.size() === 0;
 }
 
 function removalStopsComboEngine() {
@@ -178,6 +298,9 @@ function realCombatEngineOpensLethalWindow() {
   combat.attack(gameState, attacker, { combatTarget: () => defender });
   return defender.life === 4
     && defender.metrics.counterspellsUsed === 1
+    && gameState.stackManager.history.length === 1
+    && gameState.stackManager.history[0].stopped
+    && gameState.stackManager.history[0].actionType === ACTION_TYPES.LETHAL
     && debugIncludes(gameState, `Interaction window opens [${WINDOW_TYPES.COMBAT}/${ACTION_TYPES.LETHAL}]`);
 }
 
