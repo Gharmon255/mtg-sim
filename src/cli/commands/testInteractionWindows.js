@@ -1,6 +1,8 @@
 const assert = require('assert');
+const { CombatEngine } = require('../../game/CombatEngine');
+const { GameState } = require('../../game/GameState');
 const { InteractionEngine } = require('../../game/InteractionEngine');
-const { InteractionWindow, createInteractionWindow } = require('../../game/InteractionWindow');
+const { ACTION_TYPES, WINDOW_TYPES, InteractionWindow, createInteractionWindow } = require('../../game/InteractionWindow');
 
 function testInteractionWindowsCommand() {
   const tests = [
@@ -9,7 +11,9 @@ function testInteractionWindowsCommand() {
     ['Removal-like interaction stops combo creature or engine', removalStopsComboEngine],
     ['Protection-like interaction defends important board wipe', protectionDefendsBoardWipe],
     ['Lethal combat window can still be stopped', lethalCombatWindowStops],
-    ['Combo attempt stopping still works', comboAttemptStoppingStillWorks]
+    ['Counterspell-like interaction can stop lethal combat by policy', counterStopsLethalCombatPolicy],
+    ['Combo attempt stopping still works', comboAttemptStoppingStillWorks],
+    ['Real CombatEngine path opens lethal combat interaction window', realCombatEngineOpensLethalWindow]
   ];
 
   console.log('Interaction Window Tests');
@@ -31,16 +35,16 @@ function testInteractionWindowsCommand() {
 
 function windowModelNormalizes() {
   const player = fixturePlayer('A');
-  const spell = createInteractionWindow(player, { kind: 'boardwipe', label: 'Toxic Deluge' });
-  const activated = new InteractionWindow({ windowType: 'activated-ability', kind: 'combo', label: 'Kiki-Jiki activation' });
-  const triggered = createInteractionWindow(player, { windowType: 'triggered-ability', kind: 'high-impact', label: 'Smothering Tithe trigger' });
-  return spell.windowType === 'board-wipe'
+  const spell = createInteractionWindow(player, { actionType: ACTION_TYPES.BOARDWIPE, label: 'Toxic Deluge' });
+  const activated = new InteractionWindow({ windowType: WINDOW_TYPES.ACTIVATED_ABILITY, actionType: ACTION_TYPES.COMBO, label: 'Kiki-Jiki activation' });
+  const triggered = createInteractionWindow(player, { windowType: WINDOW_TYPES.TRIGGERED_ABILITY, actionType: ACTION_TYPES.HIGH_IMPACT, label: 'Smothering Tithe trigger' });
+  return spell.windowType === WINDOW_TYPES.BOARD_WIPE
     && spell.canBeCountered
-    && activated.windowType === 'activated-ability'
+    && activated.windowType === WINDOW_TYPES.ACTIVATED_ABILITY
     && activated.canBeRemoved
     && !activated.canBeCountered
-    && triggered.windowType === 'triggered-ability'
-    && triggered.actionType === 'high-impact';
+    && triggered.windowType === WINDOW_TYPES.TRIGGERED_ABILITY
+    && triggered.actionType === ACTION_TYPES.HIGH_IMPACT;
 }
 
 function counterStopsHighImpactSpell() {
@@ -53,8 +57,8 @@ function counterStopsHighImpactSpell() {
   control.hand.push(spell('Counterspell', ['counterspell'], 2));
   const gameState = mockGame([acting, control]);
   const result = new InteractionEngine().attemptToStop(gameState, acting, {
-    windowType: 'spell-cast',
-    kind: 'high-impact',
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: ACTION_TYPES.HIGH_IMPACT,
     label: 'Rhystic Study',
     sourceCard: spell('Rhystic Study', ['draw', 'high-impact'], 3),
     impactScore: 80,
@@ -72,8 +76,8 @@ function removalStopsComboEngine() {
   midrange.hand.push(spell('Swords to Plowshares', ['removal', 'single-target-removal'], 1));
   const gameState = mockGame([combo, midrange]);
   const result = new InteractionEngine().attemptToStop(gameState, combo, {
-    windowType: 'activated-ability',
-    kind: 'combo',
+    windowType: WINDOW_TYPES.ACTIVATED_ABILITY,
+    actionType: ACTION_TYPES.COMBO,
     label: 'Kiki-Jiki activation',
     sourceCard: creature('Kiki-Jiki, Mirror Breaker', ['combo-piece']),
     canBeCountered: false,
@@ -92,8 +96,8 @@ function protectionDefendsBoardWipe() {
   tokens.hand.push(spell('Counterspell', ['counterspell'], 2));
   const gameState = mockGame([sweeper, tokens]);
   const result = new InteractionEngine().attemptToStop(gameState, sweeper, {
-    windowType: 'board-wipe',
-    kind: 'boardwipe',
+    windowType: WINDOW_TYPES.BOARD_WIPE,
+    actionType: ACTION_TYPES.BOARDWIPE,
     label: 'Toxic Deluge',
     sourceCard: spell('Toxic Deluge', ['boardwipe', 'high-impact'], 3),
     impactScore: 90,
@@ -111,8 +115,8 @@ function lethalCombatWindowStops() {
   defender.hand.push(spell('Path to Exile', ['removal', 'single-target-removal'], 1));
   const gameState = mockGame([aggro, defender]);
   const result = new InteractionEngine().attemptToStop(gameState, aggro, {
-    windowType: 'combat',
-    kind: 'lethal',
+    windowType: WINDOW_TYPES.COMBAT,
+    actionType: ACTION_TYPES.LETHAL,
     label: 'lethal attack',
     targetPlayer: defender,
     canBeCountered: false,
@@ -123,17 +127,58 @@ function lethalCombatWindowStops() {
   return result.stopped && result.card === 'Path to Exile' && defender.metrics.lethalAttacksStopped === 1;
 }
 
+function counterStopsLethalCombatPolicy() {
+  const aggro = fixturePlayer('Aggro Deck', { primaryArchetype: 'aggro', aggressionLevel: 85 });
+  const defender = fixturePlayer('Defender', { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  defender.hand.push(spell('Counterspell', ['counterspell'], 2));
+  const gameState = mockGame([aggro, defender]);
+  const result = new InteractionEngine().attemptToStop(gameState, aggro, createInteractionWindow(aggro, {
+    windowType: WINDOW_TYPES.COMBAT,
+    actionType: ACTION_TYPES.LETHAL,
+    label: 'lethal attack',
+    targetPlayer: defender,
+    impactScore: 92,
+    canBeCountered: true,
+    canBeRemoved: true,
+    canBeProtected: true,
+    reason: 'combat damage would eliminate the defender'
+  }));
+  return result.stopped && result.card === 'Counterspell' && defender.metrics.counterspellsUsed === 1;
+}
+
 function comboAttemptStoppingStillWorks() {
   const combo = fixturePlayer('Thoracle Combo', { primaryArchetype: 'combo', comboPriority: 100, estimatedBracket: 5 });
   const control = fixturePlayer('Blue Control', { primaryArchetype: 'control', controlPriority: 95, estimatedBracket: 5 });
   control.hand.push(spell('Force of Will', ['counterspell', 'free-spell'], 5));
   const gameState = mockGame([combo, control]);
   const result = new InteractionEngine().attemptToStop(gameState, combo, {
-    kind: 'combo',
+    actionType: ACTION_TYPES.COMBO,
+    windowType: WINDOW_TYPES.COMBO_ATTEMPT,
     label: 'Thassa Oracle Consultation',
     impactScore: 100
   });
   return result.stopped && control.metrics.comboAttemptsStopped === 1 && control.metrics.counterspellsUsed === 1;
+}
+
+function realCombatEngineOpensLethalWindow() {
+  const attacker = fixturePlayer('Attacker', { primaryArchetype: 'aggro' });
+  const defender = fixturePlayer('Defender', { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  attacker.boardScore = 10;
+  attacker.damageDealt = 0;
+  attacker.commanderPermanentNames = new Set();
+  attacker.commanderCombatPower = new Map();
+  defender.life = 4;
+  defender.interactionShield = 0;
+  defender.commanderDamageShield = 0;
+  defender.commanderDamage = new Map();
+  defender.hand.push(spell('Counterspell', ['counterspell'], 2));
+  const gameState = new GameState([attacker, defender], { debug: true });
+  gameState.turn = 4;
+  const combat = new CombatEngine({ interactionEngine: new InteractionEngine() });
+  combat.attack(gameState, attacker, { combatTarget: () => defender });
+  return defender.life === 4
+    && defender.metrics.counterspellsUsed === 1
+    && debugIncludes(gameState, `Interaction window opens [${WINDOW_TYPES.COMBAT}/${ACTION_TYPES.LETHAL}]`);
 }
 
 function fixturePlayer(name, profile = {}) {

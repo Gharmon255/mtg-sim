@@ -179,7 +179,7 @@ The engine models a simplified Commander game:
 - Build an AI strategy profile for each deck from bracket, archetype, combo, mana, and tag analysis.
 - Use strategy-aware mulligans, tutor choices, casting priorities, threat selection, combo attempts, and simplified interaction.
 - Allow exact known combos and lower-confidence possible combo lines to win games when setup conditions are met.
-- Let opponents use Interaction Windows v1, a simplified counterplay layer for combo wins, activated or triggered ability threats, high-impact spells, board wipes, and lethal attacks.
+- Let opponents use Interaction Windows v1, a simplified counterplay layer for combo wins, high-impact spells, board wipes, and lethal attacks.
 - End when one player remains or the max turn limit is reached.
 
 It does not yet model the stack accurately, full priority passes, replacement effects, every triggered ability, every timing restriction, every combat rule, or exact Oracle text. Rules fidelity is intentionally incremental: validation should become strict before simulation becomes exact.
@@ -196,7 +196,11 @@ Profiles include archetype, bracket, aggression, combo, control, ramp, commander
 
 During simulation, profiles influence opening hand keeps, tutor targets, combat and removal targets, whether a deck holds interaction, when combo decks attempt wins, and whether opponents spend simplified counterplay to stop major plays.
 
-Interaction Windows v1 sits between the heuristic `InteractionEngine` and a future full stack/priority system. Each window records a source player, source card, action type, target when known, impact score, whether it can be countered/removed/protected, the reason it matters, and debug metadata. It covers spell-cast, activated ability, triggered ability, combat/lethal, combo attempt, and board wipe windows.
+Interaction Windows v1 sits between the heuristic `InteractionEngine` and a future full stack/priority system. Each window records a source player, source card, action type, target when known, impact score, whether it can be countered/removed/protected, the reason it matters, and debug metadata. The model supports spell-cast, activated ability, triggered ability, combat/lethal, combo attempt, and board wipe window types.
+
+Current production simulation opens explicit windows mainly for spell casts that are high-impact, stax, win conditions, or board wipes; combat/lethal attacks; and combo attempts. Activated and triggered window types exist in the model for the next step, but they are not broadly opened by production simulation yet.
+
+For simulator continuity, lethal combat windows remain counterable by default. This is a heuristic abstraction for emergency interaction such as bounce, fog-like effects, free answers, or other broad counterplay; it is not claiming a normal counterspell can counter combat damage under real Magic rules.
 
 This is not full MTG priority. The simulator does not yet pass priority around the table, build a stack of nested objects, or model every response timing rule. The window layer is a deterministic bridge so debug output and tests can describe when a meaningful response opportunity opens, who may respond, which answer was chosen, and why.
 

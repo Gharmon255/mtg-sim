@@ -1,4 +1,5 @@
 const { CommanderRules } = require('../rules/CommanderRules');
+const { ACTION_TYPES, WINDOW_TYPES, createInteractionWindow } = require('./InteractionWindow');
 
 class CombatEngine {
   constructor(options = {}) {
@@ -15,10 +16,18 @@ class CombatEngine {
     const damage = Math.max(0, Math.ceil(player.boardScore / 2) - shieldReduction);
     const commanderLethal = wouldBeCommanderLethal(player, target, damage);
     if (this.interactionEngine && (damage >= target.life || commanderLethal)) {
-      const stopped = this.interactionEngine.attemptToStop(gameState, player, {
-        kind: commanderLethal ? 'commander-lethal' : 'lethal',
-        label: commanderLethal ? 'lethal commander attack' : 'lethal attack'
-      });
+      const actionType = commanderLethal ? ACTION_TYPES.COMMANDER_LETHAL : ACTION_TYPES.LETHAL;
+      const stopped = this.interactionEngine.attemptToStop(gameState, player, createInteractionWindow(player, {
+        windowType: WINDOW_TYPES.COMBAT,
+        actionType,
+        label: commanderLethal ? 'lethal commander attack' : 'lethal attack',
+        targetPlayer: target,
+        impactScore: commanderLethal ? 96 : 90,
+        canBeCountered: true,
+        canBeRemoved: true,
+        canBeProtected: true,
+        reason: commanderLethal ? 'commander damage would eliminate the defender' : 'combat damage would eliminate the defender'
+      }));
       if (stopped.stopped) {
         return;
       }

@@ -2,6 +2,7 @@ const { CommanderRules } = require('../rules/CommanderRules');
 const { DecisionEngine } = require('../ai/DecisionEngine');
 const { UpkeepEngine } = require('./UpkeepEngine');
 const { TriggeredAbilityEngine } = require('./TriggeredAbilityEngine');
+const { ACTION_TYPES, WINDOW_TYPES, createInteractionWindow } = require('./InteractionWindow');
 
 class TurnEngine {
   constructor({ behaviorRegistry, combatEngine, decisionEngine, interactionEngine }) {
@@ -138,12 +139,19 @@ class TurnEngine {
 
     const interactionKind = interactionKindForAction(action, card);
     if (interactionKind && this.interactionEngine) {
-      const stopped = this.interactionEngine.attemptToStop(gameState, player, {
-        kind: interactionKind,
+      const window = createInteractionWindow(player, {
+        windowType: windowTypeForInteractionKind(interactionKind),
+        actionType: interactionKind,
         label: card.name,
-        card,
-        controller: player.name
+        sourceCard: card,
+        targetPlayer: targeting.highestThreatOpponent ? targeting.highestThreatOpponent(player) : null,
+        impactScore: impactScoreForInteractionKind(interactionKind, player, gameState),
+        canBeCountered: true,
+        canBeRemoved: removableForInteractionKind(interactionKind),
+        canBeProtected: protectableForInteractionKind(interactionKind),
+        reason: reasonForInteractionKind(interactionKind, card, player)
       });
+      const stopped = this.interactionEngine.attemptToStop(gameState, player, window);
       if (stopped.stopped) {
         if (player.payCard) player.payCard(card);
         else player.availableMana -= card.manaValue || 0;
@@ -230,7 +238,20 @@ class TurnEngine {
     player.metrics.comboAttemptTurns.push(gameState.turn);
     const label = attempt.combo.name || 'combo win';
     if (this.interactionEngine) {
-      const stopped = this.interactionEngine.attemptToStop(gameState, player, { kind: 'combo', label });
+      const stopped = this.interactionEngine.attemptToStop(gameState, player, createInteractionWindow(player, {
+        windowType: WINDOW_TYPES.COMBO_ATTEMPT,
+        actionType: ACTION_TYPES.COMBO,
+        label,
+        impactScore: attempt.possible || attempt.confidence === 'low' ? 78 : 96,
+        canBeCountered: true,
+        canBeRemoved: true,
+        canBeProtected: true,
+        reason: attempt.possible ? 'possible combo line may become lethal' : 'detected combo attempt may end the game',
+        debug: {
+          confidence: attempt.confidence,
+          possible: Boolean(attempt.possible)
+        }
+      }));
       if (stopped.stopped) {
         player.metrics.stoppedComboAttempts += 1;
         player.metrics.failedComboAttempts += 1;
@@ -322,12 +343,44 @@ function recordManaPaymentDebug(gameState, player, card) {
 
 function interactionKindForAction(action, card) {
   const tags = new Set(card.tags || []);
-  if (action.type === 'cast_boardwipe') return 'boardwipe';
-  if (action.type === 'cast_stax_piece') return 'stax';
-  if (action.type === 'cast_wincon') return 'wincon';
-  if (tags.has('high-impact')) return 'high-impact';
-  if (tags.has('combo-piece') && tags.has('wincon')) return 'wincon';
+  if (action.type === 'cast_boardwipe') return ACTION_TYPES.BOARDWIPE;
+  if (action.type === 'cast_stax_piece') return ACTION_TYPES.STAX;
+  if (action.type === 'cast_wincon') return ACTION_TYPES.WINCON;
+  if (tags.has('high-impact')) return ACTION_TYPES.HIGH_IMPACT;
+  if (tags.has('combo-piece') && tags.has('wincon')) return ACTION_TYPES.WINCON;
   return null;
+}
+
+function windowTypeForInteractionKind(kind) {
+  if (kind === ACTION_TYPES.BOARDWIPE) return WINDOW_TYPES.BOARD_WIPE;
+  return WINDOW_TYPES.SPELL_CAST;
+}
+
+function impactScoreForInteractionKind(kind, player, gameState) {
+  if (kind === ACTION_TYPES.BOARDWIPE) {
+    const opponentBoard = gameState.opponentsOf(player).reduce((sum, opponent) => sum + opponent.boardScore, 0);
+    return Math.max(70, Math.min(100, 70 + opponentBoard - player.boardScore));
+  }
+  if (kind === ACTION_TYPES.WINCON) return 88;
+  if (kind === ACTION_TYPES.STAX) return 76;
+  if (kind === ACTION_TYPES.HIGH_IMPACT) return 74;
+  return 60;
+}
+
+function removableForInteractionKind(kind) {
+  return [ACTION_TYPES.STAX, ACTION_TYPES.WINCON, ACTION_TYPES.HIGH_IMPACT].includes(kind);
+}
+
+function protectableForInteractionKind(kind) {
+  return [ACTION_TYPES.BOARDWIPE, ACTION_TYPES.WINCON, ACTION_TYPES.HIGH_IMPACT].includes(kind);
+}
+
+function reasonForInteractionKind(kind, card, player) {
+  if (kind === ACTION_TYPES.BOARDWIPE) return `${card.name} would reset battlefield development`;
+  if (kind === ACTION_TYPES.STAX) return `${card.name} may restrict opposing game plans`;
+  if (kind === ACTION_TYPES.WINCON) return `${card.name} may create a winning position`;
+  if (kind === ACTION_TYPES.HIGH_IMPACT) return `${card.name} is tagged as a high-impact spell`;
+  return `${player.name} is casting ${card.name}`;
 }
 
 function estimateCommanderCombatPower(commander) {
