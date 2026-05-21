@@ -15,6 +15,7 @@ This simulator is improving steadily, but it is not a full Magic rules engine.
 - Ambiguous casts with no type line and no clear action/tag metadata are treated conservatively and do not open Mystic Remora-style windows.
 - Commander casts are not fully routed through opponent-cast triggered windows yet.
 - Some Grim Monolith / Mana Vault-style upkeep untap/payment paths intentionally resolve without a stack window until broader activated ability timing is modeled.
+- Interaction / Stack Summary report metrics are visibility signals. They do not dump full stack history, and Rhystic/Mystic draw counts remain heuristic benefits rather than exact tax/payment outcomes.
 - Replacement effects, layers, state-based actions, exact timing permissions, and many continuous effects are not fully modeled.
 
 ## Combat

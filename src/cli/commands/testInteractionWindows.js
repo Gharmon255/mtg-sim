@@ -7,6 +7,7 @@ const { StackObject } = require('../../game/StackObject');
 const { StackManager } = require('../../game/StackManager');
 const { TurnEngine } = require('../../game/TurnEngine');
 const { PlayerState } = require('../../game/PlayerState');
+const { ReportGenerator } = require('../../simulation/ReportGenerator');
 
 function testInteractionWindowsCommand() {
   const tests = [
@@ -56,7 +57,10 @@ function testInteractionWindowsCommand() {
     ['Low-MV noncreature triggers Mystic but not Rhystic', lowMvNonCreatureTriggersMysticNotRhystic],
     ['Low-impact opponent cast does not open Rhystic-style trigger window', lowImpactCastDoesNotOpenRhysticWindow],
     ['No Rhystic-style permanent means no opponent-cast trigger window', noRhysticMeansNoOpponentCastTrigger],
-    ['Unanswered lethal combat resolves without false interaction metrics', unansweredLethalCombatResolves]
+    ['Unanswered lethal combat resolves without false interaction metrics', unansweredLethalCombatResolves],
+    ['ReportGenerator surfaces interaction stack summary', reportGeneratorSurfacesInteractionStackSummary],
+    ['ReportGenerator includes Rhystic and Mystic draw metrics', reportGeneratorIncludesTaxDrawMetrics],
+    ['ReportGenerator handles no-interaction metrics cleanly', reportGeneratorHandlesNoInteractionMetrics]
   ];
 
   console.log('Interaction Window Tests');
@@ -1219,6 +1223,82 @@ function unansweredLethalCombatResolves() {
     && debugIncludes(gameState, 'Interaction window closes: lethal attack resolves');
 }
 
+function reportGeneratorSurfacesInteractionStackSummary() {
+  const reporter = new ReportGenerator();
+  const result = reportResult([
+    reportPlayer('Tax Deck', true, {
+      interactionWindowsOpened: 3,
+      stackObjectsProcessed: 4,
+      stackObjectsResolved: 2,
+      comboAttemptsStopped: 1,
+      lethalAttacksStopped: 1,
+      highImpactSpellsStopped: 1
+    }),
+    reportPlayer('Control Deck', false, {
+      stackObjectsProcessed: 1,
+      counterspellsUsed: 1,
+      interactionUsed: 1
+    })
+  ]);
+  const report = reporter.generate(result);
+  const text = reporter.toText(report);
+  return report.interactionStackSummary.interactionWindowsOpened === 3
+    && report.interactionStackSummary.stackObjectsProcessed === 5
+    && report.interactionStackSummary.stackObjectsResolved === 2
+    && report.interactionStackSummary.attemptsStopped === 3
+    && report.interactionStackSummary.priorityResponses === 2
+    && text.includes('Interaction / Stack Summary:')
+    && text.includes('Windows opened: 3')
+    && text.includes('Stack objects processed/resolved: 5 / 2')
+    && text.includes('Attempts stopped: 3')
+    && text.includes('Priority responses: 2');
+}
+
+function reportGeneratorIncludesTaxDrawMetrics() {
+  const reporter = new ReportGenerator();
+  const result = reportResult([
+    reportPlayer('Tax Deck', true, {
+      interactionWindowsOpened: 2,
+      stackObjectsProcessed: 2,
+      stackObjectsResolved: 2,
+      rhysticStudyTriggers: 1,
+      rhysticStudyDraws: 1,
+      mysticRemoraTriggers: 1,
+      mysticRemoraDraws: 1
+    }),
+    reportPlayer('Caster Deck', false)
+  ]);
+  const report = reporter.generate(result);
+  const taxDeck = report.decks.find((deck) => deck.name === 'Tax Deck');
+  const text = reporter.toText(report);
+  return report.interactionStackSummary.rhysticStudyDraws === 1
+    && report.interactionStackSummary.mysticRemoraDraws === 1
+    && taxDeck.rhysticStudyTriggers === 1
+    && taxDeck.rhysticStudyDraws === 1
+    && taxDeck.mysticRemoraTriggers === 1
+    && taxDeck.mysticRemoraDraws === 1
+    && text.includes('Rhystic-style draws: 1')
+    && text.includes('Mystic-style draws: 1')
+    && text.includes('Rhystic-style triggers/draws: 1 / 1')
+    && text.includes('Mystic-style triggers/draws: 1 / 1');
+}
+
+function reportGeneratorHandlesNoInteractionMetrics() {
+  const reporter = new ReportGenerator();
+  const report = reporter.generate(reportResult([
+    reportPlayer('Quiet Deck', true),
+    reportPlayer('Other Quiet Deck', false)
+  ]));
+  const text = reporter.toText(report);
+  return report.interactionStackSummary.interactionWindowsOpened === 0
+    && report.interactionStackSummary.stackObjectsProcessed === 0
+    && report.interactionStackSummary.priorityResponses === 0
+    && text.includes('Interaction / Stack Summary:')
+    && text.includes('Windows opened: 0')
+    && text.includes('Rhystic-style draws: 0')
+    && text.includes('Mystic-style draws: 0');
+}
+
 function fixturePlayer(name, profile = {}) {
   const player = {
     id: name.toLowerCase().replace(/\W+/g, '-'),
@@ -1378,6 +1458,40 @@ function originalHistory(gameState, label = null) {
 
 function responseHistory(gameState) {
   return gameState.stackManager.history.find((object) => object.isResponse);
+}
+
+function reportResult(players) {
+  return {
+    deckNames: players.map((player) => player.name),
+    games: [{
+      turns: 5,
+      endedBy: 'max_turns',
+      players
+    }]
+  };
+}
+
+function reportPlayer(name, won, metrics = {}) {
+  return {
+    id: name.toLowerCase().replace(/\W+/g, '-'),
+    name,
+    won,
+    life: won ? 30 : 12,
+    cardsDrawn: 7,
+    damageDealt: won ? 8 : 2,
+    boardScore: won ? 4 : 1,
+    commanderDamage: {},
+    metrics: {
+      openingHandLands: 3,
+      rampPlayed: 0,
+      removalUsed: 0,
+      commanderCastTurn: null,
+      manaScrewTurns: 0,
+      manaFloodTurns: 0,
+      lossReason: won ? null : 'behind at max turn limit',
+      ...metrics
+    }
+  };
 }
 
 module.exports = { testInteractionWindowsCommand };

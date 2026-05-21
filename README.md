@@ -218,7 +218,7 @@ Priority Passes v1 and Nested Responses / Counterplay v1 are not full MTG priori
 
 The priority responder order is intentionally `source/controller -> opponents in current table order`. The legacy `skipStackObject` escape hatch bypasses StackObject/PriorityManager creation for narrow compatibility tests or direct resolver calls, but it still uses the same table-order responder helper. New production simulation paths should prefer the normal stack path. Priority and stack result objects may include a `reason` such as `all_players_passed`, `invalid_stack_object`, `invalid_window`, `response_payment_failed`, or `nested_response_depth_limit`; these are diagnostic labels for debug output and future counterplay work, not full rules outcomes.
 
-The `stackObjectsProcessed` metric counts stack-like objects that moved through `resolvePending`, whether they resolved, were stopped, or were invalid. The older `stackObjectsResolved` metric now means the object was valid and not stopped.
+The `stackObjectsProcessed` metric counts stack-like objects that moved through `resolvePending`, whether they resolved, were stopped, or were invalid. The older `stackObjectsResolved` metric now means the object was valid and not stopped. Simulation reports surface these as compact visibility metrics; they are not a full stack replay.
 
 ## Card Roles And Sequencing
 
@@ -285,6 +285,7 @@ Simulation reports include:
 - Average mulligans, risky keeps, no-land and color-screw mulligans.
 - Combo attempts, combo win rate, failed and stopped combo attempts, and average combo attempt turn.
 - Interaction used, counterspells used, board wipes cast, and common tutor targets.
+- Interaction / Stack Summary totals for windows opened, stack objects processed/resolved, stopped attempts, priority responses, one-deep counterplay events when available, and Rhystic/Mystic-style heuristic draws.
 - Win type breakdown and pod balance recommendations.
 
 ## Deck Power Analyzer
@@ -501,7 +502,7 @@ Run interaction-window checks:
 npm run test:interaction
 ```
 
-These deterministic tests cover high-impact spell counters, removal against combo engines, protection defending an important play, one-deep counterplay, LIFO response-before-original history, board wipe priority history, combo attempt priority history, lethal combat windows, unanswered lethal combat resolution, existing combo-attempt stopping, StackObject creation and malformed-window guards, StackManager push/pop behavior, Priority Passes v1 order/pass/response metadata, TurnEngine/CombatEngine integration paths, and stack history.
+These deterministic tests cover high-impact spell counters, removal against combo engines, protection defending an important play, one-deep counterplay, LIFO response-before-original history, board wipe priority history, combo attempt priority history, lethal combat windows, unanswered lethal combat resolution, existing combo-attempt stopping, StackObject creation and malformed-window guards, StackManager push/pop behavior, Priority Passes v1 order/pass/response metadata, TurnEngine/CombatEngine integration paths, compact interaction/stack report output, and stack history.
 
 ## Debug Simulation
 

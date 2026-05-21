@@ -88,6 +88,15 @@ class ReportGenerator {
         comboAttemptsStopped: 0,
         lethalAttacksStopped: 0,
         highImpactSpellsStopped: 0,
+        interactionWindowsOpened: 0,
+        stackObjectsProcessed: 0,
+        stackObjectsResolved: 0,
+        priorityResponses: 0,
+        nestedCounterplayEvents: 0,
+        rhysticStudyTriggers: 0,
+        rhysticStudyDraws: 0,
+        mysticRemoraTriggers: 0,
+        mysticRemoraDraws: 0,
         heldInteractionTurns: 0,
         boardWipesCast: 0,
         commanderDamageKills: 0,
@@ -205,6 +214,15 @@ class ReportGenerator {
         stats.comboAttemptsStopped += player.metrics.comboAttemptsStopped || 0;
         stats.lethalAttacksStopped += player.metrics.lethalAttacksStopped || 0;
         stats.highImpactSpellsStopped += player.metrics.highImpactSpellsStopped || 0;
+        stats.interactionWindowsOpened += player.metrics.interactionWindowsOpened || 0;
+        stats.stackObjectsProcessed += player.metrics.stackObjectsProcessed || 0;
+        stats.stackObjectsResolved += player.metrics.stackObjectsResolved || 0;
+        stats.priorityResponses += player.metrics.priorityResponses || 0;
+        stats.nestedCounterplayEvents += player.metrics.nestedCounterplayEvents || 0;
+        stats.rhysticStudyTriggers += player.metrics.rhysticStudyTriggers || 0;
+        stats.rhysticStudyDraws += player.metrics.rhysticStudyDraws || 0;
+        stats.mysticRemoraTriggers += player.metrics.mysticRemoraTriggers || 0;
+        stats.mysticRemoraDraws += player.metrics.mysticRemoraDraws || 0;
         stats.heldInteractionTurns += player.metrics.heldInteractionTurns || 0;
         stats.boardWipesCast += player.metrics.boardWipesCast || 0;
         stats.tutorsUsed += player.metrics.tutorsUsed || 0;
@@ -245,6 +263,7 @@ class ReportGenerator {
       averageGameLength: average(games.map((game) => game.turns)),
       decks: Array.from(deckStats.entries()).map(([name, stats]) => this.formatDeckStats(name, stats))
     };
+    report.interactionStackSummary = aggregateInteractionStack(report.decks);
     this.attachPowerAnalysis(report);
     return report;
   }
@@ -337,6 +356,16 @@ class ReportGenerator {
       comboAttemptsStopped: stats.comboAttemptsStopped,
       lethalAttacksStopped: stats.lethalAttacksStopped,
       highImpactSpellsStopped: stats.highImpactSpellsStopped,
+      interactionWindowsOpened: stats.interactionWindowsOpened,
+      stackObjectsProcessed: stats.stackObjectsProcessed,
+      stackObjectsResolved: stats.stackObjectsResolved,
+      attemptsStopped: stoppedAttempts(stats),
+      priorityResponses: stats.priorityResponses || derivedPriorityResponses(stats),
+      nestedCounterplayEvents: stats.nestedCounterplayEvents,
+      rhysticStudyTriggers: stats.rhysticStudyTriggers,
+      rhysticStudyDraws: stats.rhysticStudyDraws,
+      mysticRemoraTriggers: stats.mysticRemoraTriggers,
+      mysticRemoraDraws: stats.mysticRemoraDraws,
       heldInteractionTurns: stats.heldInteractionTurns,
       heldInteractionRate: percent(stats.heldInteractionTurns / Math.max(1, stats.games * 14)),
       boardWipesUsed: stats.boardWipesCast,
@@ -366,6 +395,15 @@ class ReportGenerator {
     const lines = [];
     lines.push(`Games simulated: ${report.gamesSimulated}`);
     lines.push(`Average game length: ${report.averageGameLength} turns`);
+    lines.push('');
+    lines.push('Interaction / Stack Summary:');
+    lines.push(`  Windows opened: ${report.interactionStackSummary.interactionWindowsOpened}`);
+    lines.push(`  Stack objects processed/resolved: ${report.interactionStackSummary.stackObjectsProcessed} / ${report.interactionStackSummary.stackObjectsResolved}`);
+    lines.push(`  Attempts stopped: ${report.interactionStackSummary.attemptsStopped}`);
+    lines.push(`  Priority responses: ${report.interactionStackSummary.priorityResponses}`);
+    lines.push(`  Nested counterplay events: ${report.interactionStackSummary.nestedCounterplayEvents}`);
+    lines.push(`  Rhystic-style draws: ${report.interactionStackSummary.rhysticStudyDraws}`);
+    lines.push(`  Mystic-style draws: ${report.interactionStackSummary.mysticRemoraDraws}`);
     lines.push('');
     for (const deck of report.decks) {
       lines.push(`${deck.name}`);
@@ -424,6 +462,14 @@ class ReportGenerator {
       lines.push(`    Combo attempts stopped: ${deck.comboAttemptsStopped}`);
       lines.push(`    Lethal attacks stopped: ${deck.lethalAttacksStopped}`);
       lines.push(`    High-impact spells stopped: ${deck.highImpactSpellsStopped}`);
+      lines.push('  Interaction / Stack Summary:');
+      lines.push(`    Windows opened: ${deck.interactionWindowsOpened}`);
+      lines.push(`    Stack objects processed/resolved: ${deck.stackObjectsProcessed} / ${deck.stackObjectsResolved}`);
+      lines.push(`    Attempts stopped: ${deck.attemptsStopped}`);
+      lines.push(`    Priority responses: ${deck.priorityResponses}`);
+      lines.push(`    Nested counterplay events: ${deck.nestedCounterplayEvents}`);
+      lines.push(`    Rhystic-style triggers/draws: ${deck.rhysticStudyTriggers} / ${deck.rhysticStudyDraws}`);
+      lines.push(`    Mystic-style triggers/draws: ${deck.mysticRemoraTriggers} / ${deck.mysticRemoraDraws}`);
       lines.push('  Sequencing Report:');
       lines.push(`    Tutors cast: ${deck.tutorsUsed}`);
       lines.push(`    Best tutor target: ${deck.mostCommonTutorTarget}`);
@@ -550,6 +596,39 @@ function behaviorMatch(deck) {
   if (archetype === 'aggro') return deck.aggressionScore >= 15 ? 'Good' : 'Needs tuning';
   if (archetype === 'ramp') return deck.averageRampPlayed >= 1 ? 'Good' : 'Needs tuning';
   return 'Developing';
+}
+
+function aggregateInteractionStack(decks) {
+  return decks.reduce((summary, deck) => {
+    summary.interactionWindowsOpened += deck.interactionWindowsOpened || 0;
+    summary.stackObjectsProcessed += deck.stackObjectsProcessed || 0;
+    summary.stackObjectsResolved += deck.stackObjectsResolved || 0;
+    summary.attemptsStopped += deck.attemptsStopped || 0;
+    summary.priorityResponses += deck.priorityResponses || 0;
+    summary.nestedCounterplayEvents += deck.nestedCounterplayEvents || 0;
+    summary.rhysticStudyDraws += deck.rhysticStudyDraws || 0;
+    summary.mysticRemoraDraws += deck.mysticRemoraDraws || 0;
+    return summary;
+  }, {
+    interactionWindowsOpened: 0,
+    stackObjectsProcessed: 0,
+    stackObjectsResolved: 0,
+    attemptsStopped: 0,
+    priorityResponses: 0,
+    nestedCounterplayEvents: 0,
+    rhysticStudyDraws: 0,
+    mysticRemoraDraws: 0
+  });
+}
+
+function stoppedAttempts(stats) {
+  return (stats.comboAttemptsStopped || 0)
+    + (stats.lethalAttacksStopped || 0)
+    + (stats.highImpactSpellsStopped || 0);
+}
+
+function derivedPriorityResponses(stats) {
+  return Math.max(0, (stats.stackObjectsProcessed || 0) - (stats.interactionWindowsOpened || 0));
 }
 
 function manaQuality(stats) {

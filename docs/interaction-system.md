@@ -80,7 +80,9 @@ Protection timing is also heuristic. For board wipes and other protected windows
 
 `interactionWindowsOpened` counts real production windows opened for original important actions. Nested response objects are stack objects, but they do not increment `interactionWindowsOpened`.
 
-`stackObjectsProcessed` counts stack-like objects moved through `resolvePending`, including original objects and response objects. `stackObjectsResolved` means the object was valid and not stopped. These are currently internal/player metrics and are not broadly surfaced in `ReportGenerator` output yet.
+`stackObjectsProcessed` counts stack-like objects moved through `resolvePending`, including original objects and response objects. `stackObjectsResolved` means the object was valid and not stopped.
+
+Simulation reports now surface a compact Interaction / Stack Summary. `interactionWindowsOpened` counts opened windows, not guaranteed resolved effects. `stackObjectsProcessed` may include stopped, invalid, original, and response objects. `stackObjectsResolved` counts valid objects that were not stopped. The report's priority response count is currently derived from existing stack/window totals when no explicit priority-response metric is present, so it is a visibility signal rather than a full stack audit log. Rhystic Study-style and Mystic Remora-style draw counts are heuristic draw benefits, not exact tax/payment-rule outcomes.
 
 ## Current Flow
 
