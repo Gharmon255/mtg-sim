@@ -1,16 +1,19 @@
 const { CardRoleResolver } = require('../cards/CardRoleResolver');
 const { ACTION_TYPES, WINDOW_TYPES, createInteractionWindow } = require('./InteractionWindow');
+const { PriorityManager } = require('./PriorityManager');
 const { StackObject } = require('./StackObject');
 
 class InteractionEngine {
   constructor(options = {}) {
     this.roleResolver = options.roleResolver || new CardRoleResolver(options);
+    this.priorityManager = options.priorityManager || new PriorityManager(options);
   }
 
   attemptToStop(gameState, actingPlayer, attempt) {
     const window = createInteractionWindow(actingPlayer, attempt);
     if (gameState && gameState.stackManager && !(attempt && attempt.skipStackObject)) {
-      this.pushInteractionStackObject(gameState, window);
+      const stackObject = this.pushInteractionStackObject(gameState, window);
+      this.priorityManager.runPriority(gameState, stackObject, this);
       return gameState.stackManager.resolvePending(gameState, this);
     }
     return this.resolveWindow(gameState, actingPlayer, window);
@@ -25,23 +28,63 @@ class InteractionEngine {
   }
 
   resolveStackObject(gameState, stackObject) {
+    if (stackObject.priorityResult) return stackObject.priorityResult;
     return this.resolveWindow(gameState, stackObject.sourcePlayer, stackObject.window);
   }
 
-  resolveWindow(gameState, actingPlayer, window) {
+  preparePriorityWindow(gameState, actingPlayer, window) {
     if (!window || typeof window.toAttempt !== 'function') {
       gameState && gameState.recordDebug && gameState.recordDebug('Interaction window skipped: missing or malformed window.');
-      return { stopped: false, reason: 'invalid_window' };
+      return { ok: false, result: { stopped: false, reason: 'invalid_window' } };
     }
     if (!actingPlayer) {
       gameState && gameState.recordDebug && gameState.recordDebug(`Interaction window skipped: missing source player for ${window.label || 'unknown action'}.`);
-      return { stopped: false, reason: 'missing_source_player' };
+      return { ok: false, result: { stopped: false, reason: 'missing_source_player' } };
     }
     const normalizedAttempt = window.toAttempt();
     recordWindowOpened(gameState, window);
     if (actingPlayer.metrics) {
-      actingPlayer.metrics.interactionWindowsOpened = (actingPlayer.metrics.interactionWindowsOpened || 0) + 1;
+        actingPlayer.metrics.interactionWindowsOpened = (actingPlayer.metrics.interactionWindowsOpened || 0) + 1;
     }
+    return { ok: true, attempt: normalizedAttempt };
+  }
+
+  choosePriorityAnswer(player, attempt) {
+    return chooseAnswer(player, attempt, this.roleResolver);
+  }
+
+  applyPriorityAnswer(gameState, actingPlayer, opponent, answer, normalizedAttempt) {
+    gameState.recordDebug && gameState.recordDebug(`${opponent.name} chooses ${answer.name} for ${normalizedAttempt.label}: ${answer.responseReason || 'highest available response score'}.`);
+    const protectedAttempt = consumeProtection(actingPlayer, normalizedAttempt, this.roleResolver);
+    if (!consumeCard(opponent, answer)) {
+      gameState.recordDebug && gameState.recordDebug(`${opponent.name} could not pay for ${answer.name}; response skipped.`);
+      return { stopped: false, reason: 'response_payment_failed', by: opponent.name, card: answer.name };
+    }
+    recordInteraction(opponent, answer, normalizedAttempt, this.roleResolver);
+    recordInteractionPaymentDebug(gameState, opponent, answer);
+    if (protectedAttempt) {
+      gameState.record(`${actingPlayer.name} protects ${normalizedAttempt.label} with ${protectedAttempt.name} from ${opponent.name}'s ${answer.name}.`);
+      recordInteractionPaymentDebug(gameState, actingPlayer, protectedAttempt);
+      gameState.recordDebug && gameState.recordDebug(`${protectedAttempt.name} used because ${normalizedAttempt.label} was important to ${actingPlayer.name}'s plan.`);
+      return {
+        stopped: false,
+        protected: true,
+        by: opponent.name,
+        card: answer.name,
+        protection: protectedAttempt.name
+      };
+    }
+    const priority = answer.counterPriorityScore || answer.answerPriorityScore || 0;
+    gameState.record(`${opponent.name} stops ${actingPlayer.name}'s ${normalizedAttempt.label} with ${answer.name}.`);
+    gameState.recordDebug && gameState.recordDebug(`${answer.name} used to stop ${normalizedAttempt.label}. Priority score: ${priority}.`);
+    recordStoppedAttempt(opponent, normalizedAttempt);
+    return { stopped: true, by: opponent.name, card: answer.name };
+  }
+
+  resolveWindow(gameState, actingPlayer, window) {
+    const prepared = this.preparePriorityWindow(gameState, actingPlayer, window);
+    if (!prepared.ok) return prepared.result;
+    const normalizedAttempt = prepared.attempt;
     const opponents = gameState.opponentsOf(actingPlayer)
       .filter((opponent) => !opponent.eliminated)
       .sort((a, b) => interactionReadiness(b) - interactionReadiness(a));
@@ -56,25 +99,11 @@ class InteractionEngine {
         gameState.recordDebug && gameState.recordDebug(`${opponent.name} passes: no suitable response to ${window.label}.`);
         continue;
       }
-      gameState.recordDebug && gameState.recordDebug(`${opponent.name} chooses ${answer.name} for ${window.label}: ${answer.responseReason || 'highest available response score'}.`);
-      const protectedAttempt = consumeProtection(actingPlayer, normalizedAttempt, this.roleResolver);
-      if (!consumeCard(opponent, answer)) {
-        gameState.recordDebug && gameState.recordDebug(`${opponent.name} could not pay for ${answer.name}; response skipped.`);
+      const result = this.applyPriorityAnswer(gameState, actingPlayer, opponent, answer, normalizedAttempt);
+      if (result.protected) {
         continue;
       }
-      recordInteraction(opponent, answer, normalizedAttempt, this.roleResolver);
-      recordInteractionPaymentDebug(gameState, opponent, answer);
-      if (protectedAttempt) {
-        gameState.record(`${actingPlayer.name} protects ${normalizedAttempt.label} with ${protectedAttempt.name} from ${opponent.name}'s ${answer.name}.`);
-        recordInteractionPaymentDebug(gameState, actingPlayer, protectedAttempt);
-        gameState.recordDebug && gameState.recordDebug(`${protectedAttempt.name} used because ${normalizedAttempt.label} was important to ${actingPlayer.name}'s plan.`);
-        continue;
-      }
-      const priority = answer.counterPriorityScore || answer.answerPriorityScore || 0;
-      gameState.record(`${opponent.name} stops ${actingPlayer.name}'s ${normalizedAttempt.label} with ${answer.name}.`);
-      gameState.recordDebug && gameState.recordDebug(`${answer.name} used to stop ${normalizedAttempt.label}. Priority score: ${priority}.`);
-      recordStoppedAttempt(opponent, normalizedAttempt);
-      return { stopped: true, by: opponent.name, card: answer.name };
+      if (result.stopped) return result;
     }
     gameState.recordDebug && gameState.recordDebug(`Interaction window closes: ${window.label} resolves.`);
     return { stopped: false };

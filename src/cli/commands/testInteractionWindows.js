@@ -14,6 +14,9 @@ function testInteractionWindowsCommand() {
     ['StackObject handles missing interaction windows safely', stackObjectMissingWindowGuard],
     ['StackManager push peek pop and size work', stackManagerBasics],
     ['StackManager resolves malformed stack objects safely', stackManagerMalformedObjectGuard],
+    ['Priority pass order is source then table-order opponents', priorityPassOrderIsSourceThenTableOpponents],
+    ['Priority pass resolves when all responders pass', priorityPassAllRespondersPass],
+    ['Priority pass stops object when later opponent has response', priorityPassStopsWithLaterOpponentResponse],
     ['Counterspell-like interaction stops high-impact spell', counterStopsHighImpactSpell],
     ['Removal-like interaction stops combo creature or engine', removalStopsComboEngine],
     ['Protection-like interaction defends important board wipe', protectionDefendsBoardWipe],
@@ -101,6 +104,75 @@ function stackManagerMalformedObjectGuard() {
     && debugIncludes(gameState, 'Stack object invalid');
 }
 
+function priorityPassOrderIsSourceThenTableOpponents() {
+  const left = fixturePlayer('Left Seat');
+  const source = fixturePlayer('Source Player');
+  const right = fixturePlayer('Right Seat');
+  const gameState = new GameState([left, source, right], { debug: true });
+  const result = new InteractionEngine().attemptToStop(gameState, source, {
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: ACTION_TYPES.HIGH_IMPACT,
+    label: 'Esper Sentinel',
+    sourceCard: spell('Esper Sentinel', ['draw', 'high-impact'], 1),
+    impactScore: 70,
+    reason: 'priority order test'
+  });
+  const priority = gameState.stackManager.history[0].priority;
+  return !result.stopped
+    && priority.order.join(' > ') === 'Source Player > Left Seat > Right Seat'
+    && priority.passes.length === 3
+    && debugIncludes(gameState, 'Priority pass begins')
+    && debugIncludes(gameState, 'Priority order: Source Player -> Left Seat -> Right Seat');
+}
+
+function priorityPassAllRespondersPass() {
+  const source = fixturePlayer('Source Player');
+  const first = fixturePlayer('First Opponent');
+  const second = fixturePlayer('Second Opponent');
+  first.hand.push(spell('Llanowar Elves', ['creature'], 1));
+  second.hand.push(spell('Cultivate', ['ramp'], 3));
+  const gameState = new GameState([source, first, second], { debug: true });
+  const result = new InteractionEngine().attemptToStop(gameState, source, {
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: ACTION_TYPES.HIGH_IMPACT,
+    label: 'Rhystic Study',
+    sourceCard: spell('Rhystic Study', ['draw', 'high-impact'], 3),
+    impactScore: 80
+  });
+  const history = gameState.stackManager.history[0];
+  return !result.stopped
+    && history.resolved
+    && !history.stopped
+    && history.priority.passes.length === 3
+    && history.priority.responses.length === 0
+    && history.priority.result.stopped === false
+    && debugIncludes(gameState, 'Priority pass complete: all responders passed');
+}
+
+function priorityPassStopsWithLaterOpponentResponse() {
+  const source = fixturePlayer('Source Player');
+  const first = fixturePlayer('First Opponent');
+  const control = fixturePlayer('Control Opponent', { primaryArchetype: 'control', controlPriority: 95, estimatedBracket: 4 });
+  first.hand.push(spell('Llanowar Elves', ['creature'], 1));
+  control.hand.push(spell('Counterspell', ['counterspell'], 2));
+  const gameState = new GameState([source, first, control], { debug: true });
+  const result = new InteractionEngine().attemptToStop(gameState, source, {
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: ACTION_TYPES.HIGH_IMPACT,
+    label: 'Rhystic Study',
+    sourceCard: spell('Rhystic Study', ['draw', 'high-impact'], 3),
+    impactScore: 80
+  });
+  const history = gameState.stackManager.history[0];
+  return result.stopped
+    && result.card === 'Counterspell'
+    && history.priority.passes.map((pass) => pass.player).join(' > ') === 'Source Player > First Opponent'
+    && history.priority.responses.length === 1
+    && history.priority.responses[0].player === 'Control Opponent'
+    && history.priority.result.stopped === true
+    && debugIncludes(gameState, 'Priority pass complete: Rhystic Study has a stopping response');
+}
+
 function windowModelNormalizes() {
   const player = fixturePlayer('A');
   const spell = createInteractionWindow(player, { actionType: ACTION_TYPES.BOARDWIPE, label: 'Toxic Deluge' });
@@ -135,6 +207,8 @@ function counterStopsHighImpactSpell() {
   return result.stopped
     && result.card === 'Counterspell'
     && control.metrics.counterspellsUsed === 1
+    && gameState.stackManager.history[0].priority.responses.length === 1
+    && debugIncludes(gameState, 'Priority pass begins')
     && debugIncludes(gameState, 'Interaction window opens [spell-cast/high-impact]');
 }
 
@@ -215,6 +289,8 @@ function stackHistoryRecordsOutcomes() {
   return gameState.stackManager.history.length === 2
     && gameState.stackManager.history[0].stopped
     && !gameState.stackManager.history[1].stopped
+    && gameState.stackManager.history[0].priority.responses.length === 1
+    && gameState.stackManager.history[1].priority.passes.length >= 2
     && gameState.stackManager.history.every((object) => object.resolved)
     && gameState.stackManager.size() === 0;
 }
@@ -329,6 +405,7 @@ function realCombatEngineOpensLethalWindow() {
     && defender.metrics.counterspellsUsed === 1
     && gameState.stackManager.history.length === 1
     && gameState.stackManager.history[0].stopped
+    && gameState.stackManager.history[0].priority.responses[0].player === 'Defender'
     && gameState.stackManager.history[0].actionType === ACTION_TYPES.LETHAL
     && debugIncludes(gameState, `Interaction window opens [${WINDOW_TYPES.COMBAT}/${ACTION_TYPES.LETHAL}]`);
 }
@@ -386,6 +463,8 @@ function unansweredLethalCombatResolves() {
     && !defender.metrics.counterspellsUsed
     && !defender.metrics.removalUsed
     && !defender.metrics.lethalAttacksStopped
+    && history.priority.responses.length === 0
+    && history.priority.passes.length === 2
     && debugIncludes(gameState, 'Interaction window closes: lethal attack resolves');
 }
 
@@ -453,20 +532,9 @@ function creature(name, tags = []) {
 }
 
 function mockGame(players) {
-  return {
-    turn: 4,
-    debug: true,
-    events: [],
-    opponentsOf(player) {
-      return players.filter((candidate) => candidate.id !== player.id);
-    },
-    record(message) {
-      this.events.push({ turn: this.turn, message });
-    },
-    recordDebug(message) {
-      this.record(message);
-    }
-  };
+  const gameState = new GameState(players, { debug: true });
+  gameState.turn = 4;
+  return gameState;
 }
 
 function debugIncludes(gameState, text) {

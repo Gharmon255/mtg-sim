@@ -17,6 +17,8 @@ class StackObject {
     this.resolved = Boolean(values.resolved);
     this.stopped = Boolean(values.stopped);
     this.result = values.result || null;
+    this.priority = values.priority || null;
+    this.priorityResult = values.priorityResult || null;
     this.createdAtTurn = values.createdAtTurn;
     this.turnIndex = values.turnIndex !== undefined ? values.turnIndex : values.createdAtTurn;
     this.debug = values.debug || (window && window.debug) || {};
