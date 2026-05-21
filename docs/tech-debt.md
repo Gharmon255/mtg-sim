@@ -8,7 +8,7 @@ Known issues and cleanup targets for future agents.
 - Table order is deterministic but not skill/readiness order; this is intentional for Priority Passes v1 but may need richer policy later.
 - `stackObjectsProcessed` and `stackObjectsResolved` are internal/player metrics and still need future `ReportGenerator` surfacing if users need them in reports.
 - Some direct `StackManager` tests exist for guard behavior only; behavior assertions should prefer production `InteractionEngine.attemptToStop` paths.
-- Activated and triggered production windows are limited even though the model supports their window types.
+- Activated and triggered production windows are limited to selected paths; Smothering Tithe-style draw-tax triggers and high-impact Monolith untap activations have coverage, but most abilities still bypass stack timing.
 - Board wipe and combo priority integration tests exist; they should continue expanding with realistic game-state fixtures.
 - Nested Responses / Counterplay v1 has one-deep counterspell/protection coverage, but no 3+ deep counter wars or repeated priority loops.
 

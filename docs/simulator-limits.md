@@ -9,7 +9,7 @@ This simulator is improving steadily, but it is not a full Magic rules engine.
 - Stack Objects are not the full MTG stack.
 - Nested Responses / Counterplay v1 is capped at one response object.
 - No repeated priority loops or 3+ deep stack/counter-war support yet.
-- Triggered and activated window types exist, but production simulation does not broadly open them everywhere yet.
+- Triggered and activated window types exist, and a narrow Smothering Tithe-style trigger plus high-impact Monolith untap path are wired, but production simulation does not broadly open every ability yet.
 - Replacement effects, layers, state-based actions, exact timing permissions, and many continuous effects are not fully modeled.
 
 ## Combat

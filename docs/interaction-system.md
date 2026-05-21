@@ -23,7 +23,7 @@ Current window types include:
 - combo attempt
 - board wipe
 
-Activated and triggered windows exist in the model, but production simulation does not broadly open them yet.
+Activated and triggered windows exist in the model. Production simulation now opens a narrow set of real triggered/activated paths, but it does not broadly open every ability yet.
 
 ## Stack Objects v1
 
@@ -111,6 +111,17 @@ Production simulation opens explicit windows mainly for:
 - board wipes
 - combat/lethal attacks
 - combo attempts
+- selected triggered abilities, currently Smothering Tithe-style draw-tax treasure triggers
+- selected activated abilities, currently high-impact Monolith untap/combo-engine activations
+
+## Activated / Triggered Wiring v1
+
+Step 5 adds narrow production wiring for:
+
+- `TriggeredAbilityEngine` Smothering Tithe-style opponent draw triggers. If the trigger is stopped, the Treasure effect is skipped.
+- `AbilityResolver` high-impact Monolith untap activations when they look combo-relevant. If the activation is stopped, costs are not paid and the ability effect is skipped.
+
+This does not mean every triggered or activated ability uses stack timing. It only proves the production route can use the same `InteractionWindow -> StackObject -> PriorityManager -> optional one-deep counterplay -> history` path.
 
 ## Remaining Limits
 

@@ -208,7 +208,7 @@ During simulation, profiles influence opening hand keeps, tutor targets, combat 
 
 Interaction Windows v1 sits between the heuristic `InteractionEngine` and a future full stack/priority system. Each window records a source player, source card, action type, target when known, impact score, whether it can be countered/removed/protected, the reason it matters, and debug metadata. The model supports spell-cast, activated ability, triggered ability, combat/lethal, combo attempt, and board wipe window types.
 
-Current production simulation opens explicit windows mainly for spell casts that are high-impact, stax, win conditions, or board wipes; combat/lethal attacks; and combo attempts. Activated and triggered window types exist in the model for the next step, but they are not broadly opened by production simulation yet.
+Current production simulation opens explicit windows mainly for spell casts that are high-impact, stax, win conditions, or board wipes; combat/lethal attacks; combo attempts; selected Smothering Tithe-style triggered abilities; and selected high-impact Monolith untap activations. Most activated and triggered abilities still do not use stack timing yet.
 
 For simulator continuity, lethal combat windows remain counterable by default. This is a heuristic abstraction for emergency interaction such as bounce, fog-like effects, free answers, or other broad counterplay; it is not claiming a normal counterspell can counter combat damage under real Magic rules.
 

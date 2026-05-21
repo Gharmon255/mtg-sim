@@ -10,8 +10,8 @@ class TurnEngine {
     this.combatEngine = combatEngine;
     this.decisionEngine = decisionEngine || new DecisionEngine();
     this.interactionEngine = interactionEngine || null;
-    this.upkeepEngine = new UpkeepEngine();
-    this.triggeredAbilityEngine = new TriggeredAbilityEngine();
+    this.upkeepEngine = new UpkeepEngine({ interactionEngine: this.interactionEngine });
+    this.triggeredAbilityEngine = new TriggeredAbilityEngine({ interactionEngine: this.interactionEngine });
   }
 
   takeTurn(gameState, player, targeting) {

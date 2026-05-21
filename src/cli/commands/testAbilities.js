@@ -3,6 +3,11 @@ const { PlayerState } = require('../../game/PlayerState');
 const { AbilityResolver } = require('../../game/AbilityResolver');
 const { UpkeepEngine } = require('../../game/UpkeepEngine');
 const { TriggeredAbilityEngine } = require('../../game/TriggeredAbilityEngine');
+const { GameState } = require('../../game/GameState');
+const { InteractionEngine } = require('../../game/InteractionEngine');
+const { WINDOW_TYPES } = require('../../game/InteractionWindow');
+
+let nextTestPlayerId = 1;
 
 function testAbilitiesCommand() {
   const tests = [
@@ -27,6 +32,11 @@ function testAbilitiesCommand() {
     ['Ancient Tomb pays 2 life when used', ancientTombLifePaid],
     ['Treasures created by Dockside are tracked by source', docksideTreasureSourceTracked],
     ['Smothering Tithe creates treasures over time', smotheringTitheTriggers],
+    ['Smothering Tithe trigger opens and resolves interaction window', smotheringTitheWindowResolves],
+    ['Smothering Tithe trigger can be stopped through interaction window', smotheringTitheWindowStopped],
+    ['Basalt Monolith untap ability opens and resolves interaction window', basaltUntapWindowResolves],
+    ['Basalt Monolith untap ability can be stopped through interaction window', basaltUntapWindowStopped],
+    ['Activated ability counterplay remains one-deep', activatedAbilityCounterplayOneDeep],
     ['Treasure cannot be reused after sacrifice', treasureCannotReuse],
     ['Phyrexian Tower sacrifices a creature to produce black', phyrexianTowerSacrificeMana],
     ['Nykthos produces more mana when devotion is high', nykthosDevotionMana],
@@ -223,6 +233,117 @@ function smotheringTitheTriggers() {
   return owner.metrics.treasureTriggers === 2 && owner.tokenManager.treasureCount() === 2;
 }
 
+function smotheringTitheWindowResolves() {
+  const owner = testPlayer(['W'], { estimatedBracket: 3 });
+  const opponent = testPlayer(['U']);
+  owner.addPermanent(card('Smothering Tithe', 'Enchantment', '{3}{W}', ['ramp', 'treasure', 'high-impact']));
+  const gameState = new GameState([owner, opponent], { debug: true });
+  gameState.turn = 3;
+  new TriggeredAbilityEngine({ interactionEngine: new InteractionEngine() }).afterDraw(gameState, opponent, 1);
+  const history = gameState.stackManager.history[0];
+  return owner.metrics.treasureTriggers === 1
+    && owner.tokenManager.treasureCount() === 1
+    && owner.metrics.interactionWindowsOpened === 1
+    && history
+    && history.windowType === WINDOW_TYPES.TRIGGERED_ABILITY
+    && !history.stopped
+    && history.priorityResult.reason === 'all_players_passed'
+    && debugIncludes(gameState, 'Interaction window opens [triggered-ability/high-impact]');
+}
+
+function smotheringTitheWindowStopped() {
+  const owner = testPlayer(['W'], { estimatedBracket: 3 });
+  const opponent = testPlayer(['G'], { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  owner.addPermanent(card('Smothering Tithe', 'Enchantment', '{3}{W}', ['ramp', 'treasure', 'high-impact']));
+  opponent.addPermanent(land('Forest'));
+  opponent.hand.push(card('Nature\'s Claim', 'Instant', '{G}', ['removal']));
+  const gameState = new GameState([owner, opponent], { debug: true });
+  gameState.turn = 3;
+  new TriggeredAbilityEngine({ interactionEngine: new InteractionEngine() }).afterDraw(gameState, opponent, 1);
+  const original = originalHistory(gameState);
+  const response = responseHistory(gameState);
+  return !owner.metrics.treasureTriggers
+    && owner.tokenManager.treasureCount() === 0
+    && original
+    && response
+    && original.windowType === WINDOW_TYPES.TRIGGERED_ABILITY
+    && original.stopped
+    && response.respondsTo === original.id
+    && opponent.metrics.removalUsed === 1
+    && debugIncludes(gameState, 'Smothering Tithe trigger was stopped');
+}
+
+function basaltUntapWindowResolves() {
+  const player = testPlayer([]);
+  const opponent = testPlayer(['G']);
+  const basalt = player.addPermanent(artifact('Basalt Monolith'));
+  basalt.tapped = true;
+  player.addPermanent(artifact('Rings of Brighthearth'));
+  addLands(player, 'Wastes', 3);
+  const gameState = new GameState([player, opponent], { debug: true });
+  gameState.turn = 4;
+  const result = new AbilityResolver({ interactionEngine: new InteractionEngine() }).activate(player, basalt, 'untap', { gameState, turn: 4 });
+  const history = gameState.stackManager.history[0];
+  return result.success
+    && !basalt.tapped
+    && player.metrics.untapAbilitiesActivated === 1
+    && player.metrics.interactionWindowsOpened === 1
+    && history
+    && history.windowType === WINDOW_TYPES.ACTIVATED_ABILITY
+    && !history.stopped
+    && debugIncludes(gameState, 'Interaction window opens [activated-ability/combo]');
+}
+
+function basaltUntapWindowStopped() {
+  const player = testPlayer([]);
+  const opponent = testPlayer(['G'], { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  const basalt = player.addPermanent(artifact('Basalt Monolith'));
+  basalt.tapped = true;
+  player.addPermanent(artifact('Rings of Brighthearth'));
+  addLands(player, 'Wastes', 3);
+  opponent.addPermanent(land('Forest'));
+  opponent.hand.push(card('Nature\'s Claim', 'Instant', '{G}', ['removal']));
+  const gameState = new GameState([player, opponent], { debug: true });
+  gameState.turn = 4;
+  const result = new AbilityResolver({ interactionEngine: new InteractionEngine() }).activate(player, basalt, 'untap', { gameState, turn: 4 });
+  const original = originalHistory(gameState);
+  const response = responseHistory(gameState);
+  return !result.success
+    && result.stopped
+    && basalt.tapped
+    && !player.metrics.untapAbilitiesActivated
+    && original
+    && response
+    && original.windowType === WINDOW_TYPES.ACTIVATED_ABILITY
+    && original.stopped
+    && opponent.metrics.removalUsed === 1
+    && debugIncludes(gameState, 'Basalt Monolith untap ability was stopped');
+}
+
+function activatedAbilityCounterplayOneDeep() {
+  const player = testPlayer(['U'], { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  const opponent = testPlayer(['G'], { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  const basalt = player.addPermanent(artifact('Basalt Monolith'));
+  basalt.tapped = true;
+  player.addPermanent(artifact('Rings of Brighthearth'));
+  addLands(player, 'Wastes', 3);
+  player.addPermanent(land('Island'));
+  player.hand.push(card('Swan Song', 'Instant', '{U}', ['counterspell']));
+  opponent.addPermanent(land('Forest'));
+  opponent.hand.push(card('Nature\'s Claim', 'Instant', '{G}', ['removal']));
+  opponent.hand.push(card('Force of Will', 'Instant', '{3}{U}{U}', ['counterspell', 'free-spell']));
+  const gameState = new GameState([player, opponent], { debug: true });
+  gameState.turn = 4;
+  const result = new AbilityResolver({ interactionEngine: new InteractionEngine() }).activate(player, basalt, 'untap', { gameState, turn: 4 });
+  return result.success
+    && !basalt.tapped
+    && gameState.stackManager.history.length === 2
+    && gameState.stackManager.history.filter((object) => object.isResponse).length === 1
+    && gameState.stackManager.history.every((object) => object.responseDepth <= 1)
+    && player.metrics.counterspellsUsed === 1
+    && opponent.metrics.removalUsed === 1;
+}
+
 function treasureCannotReuse() {
   const player = testPlayer(['W']);
   player.createTreasures(1, 'Test');
@@ -253,9 +374,10 @@ function oldManaBasicsStillPass() {
 }
 
 function testPlayer(commanderColors = [], profile = {}) {
+  const id = profile.id || `p${nextTestPlayerId++}`;
   const player = new PlayerState({
-    id: 'p1',
-    name: 'fixture',
+    id,
+    name: profile.name || id,
     deck: { commanders: [], mainboard: [] },
     cardDatabase: { get: () => null },
     random: { shuffle: (cards) => cards, next: () => 0.25 },
@@ -277,6 +399,18 @@ function mockGame(players) {
     recordDebug: () => {},
     opponentsOf(player) { return players.filter((candidate) => candidate !== player); }
   };
+}
+
+function originalHistory(gameState) {
+  return gameState.stackManager.history.find((object) => !object.isResponse);
+}
+
+function responseHistory(gameState) {
+  return gameState.stackManager.history.find((object) => object.isResponse);
+}
+
+function debugIncludes(gameState, text) {
+  return gameState.events.some((event) => String(event.message).includes(text));
 }
 
 function spell(name, manaCost, manaValue) {

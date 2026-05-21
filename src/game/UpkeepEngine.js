@@ -2,7 +2,7 @@ const { AbilityResolver } = require('./AbilityResolver');
 
 class UpkeepEngine {
   constructor(options = {}) {
-    this.abilityResolver = options.abilityResolver || new AbilityResolver();
+    this.abilityResolver = options.abilityResolver || new AbilityResolver({ interactionEngine: options.interactionEngine });
   }
 
   run(gameState, player) {
@@ -22,6 +22,7 @@ class UpkeepEngine {
       if (shouldPayUntap(player, permanent)) {
         const result = this.abilityResolver.activate(player, permanent, 'untap', {
           turn: gameState.turn,
+          gameState,
           recordDebug: (message) => gameState.recordDebug && gameState.recordDebug(`${player.name}: ${message}`)
         });
         if (result.success) {
