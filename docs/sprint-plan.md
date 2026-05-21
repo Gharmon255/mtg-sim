@@ -16,6 +16,7 @@ This document tracks the interaction/stack/priority sprint and the next safe upg
 - Step 5: Activated / Triggered Interaction Windows v1 - Implemented
 - Step 5.5: Harden Activated / Triggered Interaction Windows v1 - Done
 - Step 6: Opponent-Cast Triggered Interaction Window v1 - Implemented
+- Step 6.5: Harden Rhystic-style Opponent-Cast Triggered Windows - Done
 
 ## Step 4 Status
 
@@ -44,6 +45,10 @@ The narrow activated/triggered window wiring has integration coverage for real T
 ## Step 6 Status
 
 Opponent-cast triggered wiring is implemented for a single Rhystic Study-style path. `TurnEngine.castAction` notifies `TriggeredAbilityEngine.afterOpponentCast` after a successful cast, and high-impact Rhystic Study triggers can now use the existing interaction window, stack object, priority pass, and one-deep counterplay flow.
+
+## Step 6.5 Status
+
+Rhystic-style opponent-cast trigger behavior is hardened with regression coverage for stopped original spells, tutor spell casts, and multiple Rhystic-style controllers. The docs now call out that commander casts are not wired into this hook yet and exact tax payment rules remain future work.
 
 ## Next Target
 

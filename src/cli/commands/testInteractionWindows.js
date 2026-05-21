@@ -43,6 +43,9 @@ function testInteractionWindowsCommand() {
     ['Rhystic-style opponent-cast trigger opens and resolves', rhysticOpponentCastTriggerResolves],
     ['Rhystic-style opponent-cast trigger can be stopped', rhysticOpponentCastTriggerStopped],
     ['Real TurnEngine cast path opens Rhystic-style trigger window', realTurnEngineCastOpensRhysticWindow],
+    ['Stopped original spell does not open Rhystic-style trigger', stoppedOriginalSpellDoesNotOpenRhysticTrigger],
+    ['Tutor spell cast can open Rhystic-style trigger window', tutorCastCanOpenRhysticTrigger],
+    ['Multiple Rhystic-style controllers open sequential trigger windows', multipleRhysticControllersOpenSequentialWindows],
     ['Low-impact opponent cast does not open Rhystic-style trigger window', lowImpactCastDoesNotOpenRhysticWindow],
     ['No Rhystic-style permanent means no opponent-cast trigger window', noRhysticMeansNoOpponentCastTrigger],
     ['Unanswered lethal combat resolves without false interaction metrics', unansweredLethalCombatResolves]
@@ -885,6 +888,85 @@ function realTurnEngineCastOpensRhysticWindow() {
     && triggerWindow.priorityResult
     && studyPlayer.cardsDrawn === 1
     && debugIncludes(gameState, `Interaction window opens [${WINDOW_TYPES.TRIGGERED_ABILITY}/${ACTION_TYPES.HIGH_IMPACT}]`);
+}
+
+function stoppedOriginalSpellDoesNotOpenRhysticTrigger() {
+  const studyPlayer = realPlayer('Study Player', { primaryArchetype: 'control', controlPriority: 95, estimatedBracket: 4 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('The One Ring', ['draw', 'high-impact'], 4);
+  studyPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyPlayer.library.push(realCard('Should Not Draw', 'Instant', '{U}', []));
+  addRealLands(studyPlayer, 'Island', 2);
+  studyPlayer.hand.push(realCard('Counterspell', 'Instant', '{U}{U}', ['counterspell']));
+  const gameState = new GameState([caster, studyPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => studyPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  const spellWindow = originalHistory(gameState, 'The One Ring');
+  return spellWindow
+    && spellWindow.stopped
+    && responseHistory(gameState)
+    && !originalHistory(gameState, 'Rhystic Study trigger')
+    && studyPlayer.cardsDrawn === 0
+    && !studyPlayer.metrics.rhysticStudyDraws
+    && studyPlayer.metrics.counterspellsUsed === 1
+    && !studyPlayer.metrics.interactionWindowsOpened
+    && caster.metrics.interactionWindowsOpened === 1
+    && debugIncludes(gameState, 'Counterspell used to stop The One Ring');
+}
+
+function tutorCastCanOpenRhysticTrigger() {
+  const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const tutor = realCard('Diabolic Tutor', 'Sorcery', '{2}{B}{B}', ['tutor', 'high-impact']);
+  studyPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyPlayer.library.push(realCard('Tutor Tax Draw', 'Instant', '{U}', []));
+  addRealLands(caster, 'Swamp', 4);
+  caster.hand.push(tutor);
+  const gameState = new GameState([caster, studyPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine({
+    chooseCastAction: () => null,
+    shouldAttemptCombo: () => null,
+    tutorResolver: {
+      resolveTutor: () => ({ message: 'Tutor resolved.' })
+    }
+  });
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => studyPlayer }, { type: 'cast_tutor', card: tutor }, tutor);
+  const triggerWindow = originalHistory(gameState, 'Rhystic Study trigger');
+  return triggerWindow
+    && triggerWindow.windowType === WINDOW_TYPES.TRIGGERED_ABILITY
+    && triggerWindow.priorityResult.reason === 'all_players_passed'
+    && triggerWindow.debug.castActionType === 'cast_tutor'
+    && studyPlayer.cardsDrawn === 1
+    && studyPlayer.hand.some((card) => card.name === 'Tutor Tax Draw')
+    && studyPlayer.metrics.rhysticStudyDraws === 1;
+}
+
+function multipleRhysticControllersOpenSequentialWindows() {
+  const caster = realPlayer('Caster');
+  const studyA = realPlayer('Study A', { estimatedBracket: 3 });
+  const studyB = realPlayer('Study B', { estimatedBracket: 3 });
+  const observer = realPlayer('Observer');
+  const castCard = spell('The One Ring', ['draw', 'high-impact'], 4);
+  studyA.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyB.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyA.library.push(realCard('Study A Draw', 'Instant', '{U}', []));
+  studyB.library.push(realCard('Study B Draw', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, studyA, studyB, observer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => observer }, { type: 'cast_draw', card: castCard }, castCard);
+  const rhysticWindows = gameState.stackManager.history.filter((object) => !object.isResponse && object.label() === 'Rhystic Study trigger');
+  return originalHistory(gameState, 'The One Ring')
+    && rhysticWindows.length === 2
+    && rhysticWindows.every((object) => object.windowType === WINDOW_TYPES.TRIGGERED_ABILITY)
+    && rhysticWindows.every((object) => object.priorityResult.reason === 'all_players_passed')
+    && studyA.cardsDrawn === 1
+    && studyB.cardsDrawn === 1
+    && studyA.metrics.interactionWindowsOpened === 1
+    && studyB.metrics.interactionWindowsOpened === 1
+    && caster.metrics.interactionWindowsOpened === 1;
 }
 
 function lowImpactCastDoesNotOpenRhysticWindow() {

@@ -139,10 +139,14 @@ Step 6 adds one narrow opponent-cast triggered path:
 - `TriggeredAbilityEngine` currently looks only for `Rhystic Study` controlled by an opponent of the casting player.
 - The trigger opens a `WINDOW_TYPES.TRIGGERED_ABILITY` window only when the cast spell is interaction-relevant, such as a high-impact spell, win condition, stax piece, board wipe, combo-wincon, or a spell with mana value 4 or greater.
 - The window records source player, source card, casting/target player, cast-card debug metadata, impact score, and a reason.
-- If no one stops the trigger, the Rhystic controller draws one card as the current heuristic benefit.
+- If no one stops the trigger, the Rhystic controller may draw one card as the current heuristic benefit.
 - If the trigger is stopped, the draw is skipped and stack/priority/history records the stopped trigger.
+- If the original spell is stopped before the simulator reaches the successful-cast hook, the Rhystic-style trigger does not open and does not draw.
+- Tutor spells that pass through the same successful `cast_tutor` hook may create Rhystic-style trigger windows when they meet the current gating rules.
+- Commander casts are not fully wired into this path yet because `tryCastCommander` does not currently use the same opponent-cast hook.
+- Multiple Rhystic-style controllers can create sequential trigger windows in current table order.
 
-This does not implement exact Rhystic Study tax payment rules yet. Low-impact casts currently do not open an extra stack window, and not every Mystic Remora / Esper Sentinel / draw-tax-style trigger is wired. Future work should broaden this one production path at a time.
+This does not implement exact Rhystic Study tax payment rules yet. Opponents do not currently choose whether to pay a tax for this path; the simulator only models the interaction-window opportunity around the heuristic draw trigger. Low-impact casts currently do not open an extra stack window, and not every Mystic Remora / Esper Sentinel / draw-tax-style trigger is wired. Future work should broaden this one production path at a time.
 
 This does not mean every triggered or activated ability uses stack timing. Smothering Tithe/Rhystic-style triggers may resolve without a stack window when no interaction engine/context is present or when the current narrow gating does not consider the trigger interaction-relevant. Likewise, some Grim Monolith / Mana Vault-style upkeep untap/payment paths may resolve without an interaction window by heuristic design. Steps 5 and 6 only prove selected production routes can use the same `InteractionWindow -> StackObject -> PriorityManager -> optional one-deep counterplay -> history` path.
 
