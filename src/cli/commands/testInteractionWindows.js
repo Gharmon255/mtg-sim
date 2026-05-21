@@ -17,6 +17,10 @@ function testInteractionWindowsCommand() {
     ['Priority pass order is source then table-order opponents', priorityPassOrderIsSourceThenTableOpponents],
     ['Priority pass resolves when all responders pass', priorityPassAllRespondersPass],
     ['Priority pass stops object when later opponent has response', priorityPassStopsWithLaterOpponentResponse],
+    ['One-deep counterplay lets original spell resolve', oneDeepCounterplayLetsOriginalResolve],
+    ['No counter-back leaves original stopped', noCounterBackLeavesOriginalStopped],
+    ['Nested response history resolves LIFO', nestedResponseHistoryResolvesLifo],
+    ['Nested response depth is capped at one response object', nestedResponseDepthIsCapped],
     ['Legacy skipStackObject path uses same table-order responders', skipStackObjectUsesTableOrderResponders],
     ['Counterspell-like interaction stops high-impact spell', counterStopsHighImpactSpell],
     ['Removal-like interaction stops combo creature or engine', removalStopsComboEngine],
@@ -171,17 +175,125 @@ function priorityPassStopsWithLaterOpponentResponse() {
     sourceCard: spell('Rhystic Study', ['draw', 'high-impact'], 3),
     impactScore: 80
   });
-  const history = gameState.stackManager.history[0];
+  const history = originalHistory(gameState);
+  const responseObject = responseHistory(gameState);
   return result.stopped
     && result.card === 'Counterspell'
+    && responseObject
+    && responseObject.respondsTo === history.id
     && history.priority.passes.map((pass) => pass.player).join(' > ') === 'Source Player > First Opponent'
     && history.priority.responses.length === 1
     && history.priority.responses[0].player === 'Control Opponent'
+    && history.priority.responses[0].stackObjectId === responseObject.id
     && history.priority.result.stopped === true
     && history.priorityResult.stopped === true
     && source.metrics.stackObjectsProcessed === 1
     && !source.metrics.stackObjectsResolved
     && debugIncludes(gameState, 'Priority pass complete: Rhystic Study has a stopping response');
+}
+
+function oneDeepCounterplayLetsOriginalResolve() {
+  const source = fixturePlayer('Source Player', { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  const control = fixturePlayer('Control Opponent', { primaryArchetype: 'control', controlPriority: 95, estimatedBracket: 4 });
+  source.hand.push(spell('Swan Song', ['counterspell'], 1));
+  control.hand.push(spell('Counterspell', ['counterspell'], 2));
+  const gameState = new GameState([source, control], { debug: true });
+  const result = new InteractionEngine().attemptToStop(gameState, source, {
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: ACTION_TYPES.HIGH_IMPACT,
+    label: 'Rhystic Study',
+    sourceCard: spell('Rhystic Study', ['draw', 'high-impact'], 3),
+    impactScore: 80,
+    reason: 'counter war test'
+  });
+  const original = originalHistory(gameState);
+  const response = responseHistory(gameState);
+  return !result.stopped
+    && result.reason === 'response_stopped_by_counterplay'
+    && response
+    && original
+    && gameState.stackManager.history[0] === response
+    && gameState.stackManager.history[1] === original
+    && response.stopped
+    && response.result.card === 'Swan Song'
+    && response.respondsTo === original.id
+    && !original.stopped
+    && original.priority.responses[0].counterplay.card === 'Swan Song'
+    && source.metrics.counterspellsUsed === 1
+    && control.metrics.counterspellsUsed === 1
+    && source.metrics.interactionWindowsOpened === 1
+    && !control.metrics.interactionWindowsOpened
+    && debugIncludes(gameState, 'Nested response object pushed')
+    && debugIncludes(gameState, 'Counterplay opportunity')
+    && debugIncludes(gameState, 'Nested response resolved first');
+}
+
+function noCounterBackLeavesOriginalStopped() {
+  const source = fixturePlayer('Source Player');
+  const control = fixturePlayer('Control Opponent', { primaryArchetype: 'control', controlPriority: 95, estimatedBracket: 4 });
+  control.hand.push(spell('Counterspell', ['counterspell'], 2));
+  const gameState = new GameState([source, control], { debug: true });
+  const result = new InteractionEngine().attemptToStop(gameState, source, {
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: ACTION_TYPES.HIGH_IMPACT,
+    label: 'Rhystic Study',
+    sourceCard: spell('Rhystic Study', ['draw', 'high-impact'], 3),
+    impactScore: 80
+  });
+  const original = originalHistory(gameState);
+  const response = responseHistory(gameState);
+  return result.stopped
+    && result.card === 'Counterspell'
+    && response
+    && original
+    && gameState.stackManager.history[0] === response
+    && gameState.stackManager.history[1] === original
+    && !response.stopped
+    && original.stopped
+    && response.priority.passes[0].reason === 'no_legal_counterplay'
+    && debugIncludes(gameState, 'Counterplay pass');
+}
+
+function nestedResponseHistoryResolvesLifo() {
+  const source = fixturePlayer('Source Player', { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  const control = fixturePlayer('Control Opponent', { primaryArchetype: 'control', controlPriority: 95, estimatedBracket: 4 });
+  source.hand.push(spell('Swan Song', ['counterspell'], 1));
+  control.hand.push(spell('Counterspell', ['counterspell'], 2));
+  const gameState = new GameState([source, control], { debug: true });
+  new InteractionEngine().attemptToStop(gameState, source, {
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: ACTION_TYPES.HIGH_IMPACT,
+    label: 'The One Ring',
+    sourceCard: spell('The One Ring', ['draw', 'high-impact'], 4),
+    impactScore: 88
+  });
+  return gameState.stackManager.history.length === 2
+    && gameState.stackManager.history[0].isResponse
+    && !gameState.stackManager.history[1].isResponse
+    && gameState.stackManager.history[0].respondsTo === gameState.stackManager.history[1].id
+    && gameState.stackManager.history.every((object) => object.resolved)
+    && gameState.stackManager.size() === 0;
+}
+
+function nestedResponseDepthIsCapped() {
+  const source = fixturePlayer('Source Player', { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  const control = fixturePlayer('Control Opponent', { primaryArchetype: 'control', controlPriority: 95, estimatedBracket: 4 });
+  source.hand.push(spell('Swan Song', ['counterspell'], 1));
+  control.hand.push(spell('Counterspell', ['counterspell'], 2));
+  control.hand.push(spell('Force of Will', ['counterspell', 'free-spell'], 5));
+  const gameState = new GameState([source, control], { debug: true });
+  const result = new InteractionEngine().attemptToStop(gameState, source, {
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: ACTION_TYPES.HIGH_IMPACT,
+    label: 'Rhystic Study',
+    sourceCard: spell('Rhystic Study', ['draw', 'high-impact'], 3),
+    impactScore: 80
+  });
+  return !result.stopped
+    && gameState.stackManager.history.filter((object) => object.isResponse).length === 1
+    && control.hand.length === 1
+    && ['Counterspell', 'Force of Will'].includes(control.hand[0].name)
+    && gameState.stackManager.history.every((object) => object.responseDepth <= 1);
 }
 
 function skipStackObjectUsesTableOrderResponders() {
@@ -238,11 +350,12 @@ function counterStopsHighImpactSpell() {
     impactScore: 80,
     reason: 'early draw engine may snowball'
   });
+  const history = originalHistory(gameState);
   return result.stopped
     && result.card === 'Counterspell'
     && control.metrics.counterspellsUsed === 1
-    && gameState.stackManager.history[0].priority.responses.length === 1
-    && gameState.stackManager.history[0].priorityResult.stopped === true
+    && history.priority.responses.length === 1
+    && history.priorityResult.stopped === true
     && debugIncludes(gameState, 'Priority pass begins')
     && debugIncludes(gameState, 'Interaction window opens [spell-cast/high-impact]');
 }
@@ -264,11 +377,14 @@ function stackManagerResolvesHighImpactStop() {
     impactScore: 80,
     reason: 'early draw engine may snowball'
   });
-  const history = gameState.stackManager.history[0];
+  const history = originalHistory(gameState);
+  const response = responseHistory(gameState);
   return result.stopped
     && result.card === 'Counterspell'
     && gameState.stackManager.size() === 0
     && history
+    && response
+    && response.resolved
     && history.resolved
     && history.stopped
     && history.priority
@@ -293,10 +409,13 @@ function stackManagerResolvesLethalCounter() {
     canBeProtected: true,
     reason: 'combat damage would eliminate the defender'
   });
-  const history = gameState.stackManager.history[0];
+  const history = originalHistory(gameState);
+  const response = responseHistory(gameState);
   return result.stopped
     && result.card === 'Counterspell'
     && defender.metrics.counterspellsUsed === 1
+    && response
+    && response.respondsTo === history.id
     && history.actionType === ACTION_TYPES.LETHAL
     && history.priority
     && history.priorityResult;
@@ -322,12 +441,17 @@ function stackHistoryRecordsOutcomes() {
     sourceCard: spell('Esper Sentinel', ['draw', 'high-impact'], 1),
     impactScore: 70
   }));
-  return gameState.stackManager.history.length === 2
-    && gameState.stackManager.history[0].stopped
-    && !gameState.stackManager.history[1].stopped
-    && gameState.stackManager.history[0].priority.responses.length === 1
+  const response = gameState.stackManager.history[0];
+  const stoppedOriginal = gameState.stackManager.history[1];
+  const resolvedOriginal = gameState.stackManager.history[2];
+  return gameState.stackManager.history.length === 3
+    && response.isResponse
+    && !response.stopped
+    && stoppedOriginal.stopped
+    && !resolvedOriginal.stopped
+    && stoppedOriginal.priority.responses.length === 1
     && gameState.stackManager.history.every((object) => object.priorityResult)
-    && gameState.stackManager.history[1].priority.passes.length >= 2
+    && resolvedOriginal.priority.passes.length >= 2
     && gameState.stackManager.history.every((object) => object.resolved)
     && gameState.stackManager.size() === 0;
 }
@@ -365,10 +489,13 @@ function protectionDefendsBoardWipe() {
     impactScore: 90,
     reason: 'board wipe would reset a large board'
   });
+  const original = originalHistory(gameState);
+  const response = responseHistory(gameState);
   return !result.stopped
     && tokens.metrics.counterspellsUsed === 1
     && sweeper.metrics.protectionUsed === 1
-    && gameState.stackManager.history[0].priorityResult.reason === 'all_players_passed'
+    && response.stopped
+    && original.priorityResult.reason === 'response_stopped_by_counterplay'
     && debugIncludes(gameState, 'protects Toxic Deluge');
 }
 
@@ -386,9 +513,11 @@ function boardWipeUsesPriorityHistory() {
     impactScore: 90,
     reason: 'board wipe would reset a large board'
   });
-  const history = gameState.stackManager.history[0];
+  const history = originalHistory(gameState);
+  const response = responseHistory(gameState);
   return result.stopped
     && history
+    && response
     && history.windowType === WINDOW_TYPES.BOARD_WIPE
     && history.actionType === ACTION_TYPES.BOARDWIPE
     && history.priority
@@ -462,9 +591,11 @@ function comboAttemptUsesPriorityHistory() {
     impactScore: 100,
     reason: 'detected combo attempt may end the game'
   });
-  const history = gameState.stackManager.history[0];
+  const history = originalHistory(gameState);
+  const response = responseHistory(gameState);
   return result.stopped
     && history
+    && response
     && history.windowType === WINDOW_TYPES.COMBO_ATTEMPT
     && history.actionType === ACTION_TYPES.COMBO
     && history.priority
@@ -489,12 +620,15 @@ function realCombatEngineOpensLethalWindow() {
   gameState.turn = 4;
   const combat = new CombatEngine({ interactionEngine: new InteractionEngine() });
   combat.attack(gameState, attacker, { combatTarget: () => defender });
+  const history = originalHistory(gameState);
+  const response = responseHistory(gameState);
   return defender.life === 4
     && defender.metrics.counterspellsUsed === 1
-    && gameState.stackManager.history.length === 1
-    && gameState.stackManager.history[0].stopped
-    && gameState.stackManager.history[0].priority.responses[0].player === 'Defender'
-    && gameState.stackManager.history[0].actionType === ACTION_TYPES.LETHAL
+    && gameState.stackManager.history.length === 2
+    && response
+    && history.stopped
+    && history.priority.responses[0].player === 'Defender'
+    && history.actionType === ACTION_TYPES.LETHAL
     && debugIncludes(gameState, `Interaction window opens [${WINDOW_TYPES.COMBAT}/${ACTION_TYPES.LETHAL}]`);
 }
 
@@ -515,8 +649,10 @@ function realTurnEngineOpensSpellStackWindow() {
   turnEngine.castAction(gameState, caster, {
     highestThreatOpponent: () => control
   }, { type: 'cast_draw', card: rhysticStudy }, rhysticStudy);
-  const history = gameState.stackManager.history[0];
+  const history = originalHistory(gameState);
+  const response = responseHistory(gameState);
   return history
+    && response
     && history.actionType === ACTION_TYPES.HIGH_IMPACT
     && history.windowType === WINDOW_TYPES.SPELL_CAST
     && history.stopped
@@ -628,6 +764,17 @@ function mockGame(players) {
 
 function debugIncludes(gameState, text) {
   return gameState.events.some((event) => String(event.message).includes(text));
+}
+
+function originalHistory(gameState, label = null) {
+  return gameState.stackManager.history.find((object) => {
+    if (object.isResponse) return false;
+    return !label || object.label() === label;
+  });
+}
+
+function responseHistory(gameState) {
+  return gameState.stackManager.history.find((object) => object.isResponse);
 }
 
 module.exports = { testInteractionWindowsCommand };

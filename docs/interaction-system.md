@@ -47,15 +47,35 @@ Activated and triggered windows exist in the model, but production simulation do
 
 1. Represent source/controller first.
 2. Give opponents one response opportunity in current table order.
-3. Stop the object if one valid response is chosen.
-4. Resolve if everyone passes.
+3. If one valid response is chosen, push a one-deep response object.
+4. Give the original controller one counterplay opportunity.
+5. Resolve the response object first, then the original object.
+6. Resolve if everyone passes.
 
-This is not full MTG priority. There are no nested responses, repeated priority loops, or true multi-object LIFO stack rules yet.
+This is not full MTG priority. There are no repeated priority loops, unlimited nested responses, or true multi-object LIFO stack rules yet.
+
+## Nested Responses / Counterplay v1
+
+Step 4 adds exactly one nested response object:
+
+```text
+original object -> one response object -> optional one counterplay answer
+```
+
+When a response would stop an original object, `PriorityManager` must push a response `StackObject`; it should not hide the response only inside priority metadata. The response object links back to the parent with `respondsTo` / `parentStackObjectId`, resolves first, then the original object resolves or is stopped.
+
+Supported examples:
+
+- A casts a high-impact spell, B counters it, A counters back.
+- A casts a board wipe, B counters it, A protects/counters back when current heuristics support that.
+- A attempts a combo, B responds, A may use one legal counterplay answer.
+
+Depth is intentionally capped at one response object. If B has another counterspell after A counters back, this v1 layer does not create a third object.
 
 ## Current Flow
 
 ```text
-interaction window -> stack object -> priority pass -> resolve pending -> history
+interaction window -> original stack object -> priority pass -> optional response stack object -> resolve response -> resolve original -> history
 ```
 
 Debug output should show:
@@ -65,6 +85,9 @@ Debug output should show:
 - priority pass begins
 - priority order
 - pass/response choices
+- priority response chosen
+- nested response object pushed, when applicable
+- counterplay opportunity, pass, or answer
 - priority pass complete
 - stack object resolving
 - stopped or resolved
@@ -79,14 +102,6 @@ Production simulation opens explicit windows mainly for:
 - combat/lethal attacks
 - combo attempts
 
-## Step 4 Next
+## Remaining Limits
 
-Nested Responses / Counterplay v1 should add one-deep response objects, such as:
-
-- counterspell wars A -> B -> A
-- protection responding to removal
-- protection responding to board wipes
-- debug/history links between original stack object and one nested response
-
-Still out of scope: full 3+ deep stack, full priority, and comprehensive MTG timing.
-
+Still out of scope: full 3+ deep stack, repeated priority loops, comprehensive MTG timing, full activated/triggered production coverage, and exact Oracle-level stack behavior.

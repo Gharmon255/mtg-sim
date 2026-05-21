@@ -212,9 +212,9 @@ Current production simulation opens explicit windows mainly for spell casts that
 
 For simulator continuity, lethal combat windows remain counterable by default. This is a heuristic abstraction for emergency interaction such as bounce, fog-like effects, free answers, or other broad counterplay; it is not claiming a normal counterspell can counter combat damage under real Magic rules.
 
-Stack Objects v1 is a thin simulator wrapper around Interaction Windows v1. `StackObject` and `StackManager` now follow a push -> Priority Passes v1 -> resolvePending -> history flow: the interaction engine creates a stack-like object, pushes it, runs one deterministic heuristic pass/response sweep, resolves one pending object through the existing interaction logic, then moves it to history for debug output and tests.
+Stack Objects v1 is a thin simulator wrapper around Interaction Windows v1. `StackObject` and `StackManager` now follow a push -> Priority Passes v1 -> optional one-deep response object -> resolvePending -> history flow. See [Interaction System](docs/interaction-system.md) for the detailed current flow.
 
-Priority Passes v1 is not full MTG priority. The source/controller is represented first, then opponents get one deterministic response opportunity in current table order. There are no nested responses, no repeated priority loops, and no true multi-object LIFO stack resolution yet. Step 4 is planned as Nested Responses / Counterplay v1.
+Priority Passes v1 and Nested Responses / Counterplay v1 are not full MTG priority. The source/controller is represented first, opponents get one deterministic response opportunity in current table order, and the original controller may answer that response once. There are no repeated priority loops, no 3+ deep counter wars, and no true full-stack LIFO rules engine yet.
 
 The priority responder order is intentionally `source/controller -> opponents in current table order`. The legacy `skipStackObject` escape hatch bypasses StackObject/PriorityManager creation for narrow compatibility tests or direct resolver calls, but it still uses the same table-order responder helper. New production simulation paths should prefer the normal stack path. Priority and stack result objects may include a `reason` such as `all_players_passed`, `invalid_stack_object`, `invalid_window`, or `response_payment_failed`; these are diagnostic labels for debug output and future counterplay work, not full rules outcomes.
 
@@ -501,7 +501,7 @@ Run interaction-window checks:
 npm run test:interaction
 ```
 
-These deterministic tests cover high-impact spell counters, removal against combo engines, protection defending an important play, board wipe priority history, combo attempt priority history, lethal combat windows, unanswered lethal combat resolution, existing combo-attempt stopping, StackObject creation and malformed-window guards, StackManager push/pop behavior, Priority Passes v1 order/pass/response metadata, single-object stack resolution, TurnEngine/CombatEngine integration paths, and stack history.
+These deterministic tests cover high-impact spell counters, removal against combo engines, protection defending an important play, one-deep counterplay, LIFO response-before-original history, board wipe priority history, combo attempt priority history, lethal combat windows, unanswered lethal combat resolution, existing combo-attempt stopping, StackObject creation and malformed-window guards, StackManager push/pop behavior, Priority Passes v1 order/pass/response metadata, TurnEngine/CombatEngine integration paths, and stack history.
 
 ## Debug Simulation
 
@@ -511,7 +511,7 @@ Use `--debug` for one-game tuning:
 npm run simulate -- --deck ./decks/sample-control.txt --opponents ./decks/sample-thoracle-combo.txt --games 1 --skipHydrate true --debug
 ```
 
-Debug output prints important events such as tutor choices, stack object creation/push/resolution/history, priority pass start/order/pass/response/completion, interaction windows opening and closing, possible responders, selected responses, counterspells, removal, protection, attacks, combo attempts, and win conditions.
+Debug output prints important events such as tutor choices, stack object creation/push/resolution/history, nested response push/resolution, counterplay opportunity/pass/answer, priority pass start/order/pass/response/completion, interaction windows opening and closing, possible responders, selected responses, counterspells, removal, protection, attacks, combo attempts, and win conditions.
 
 ## Roadmap
 
@@ -521,7 +521,7 @@ Debug output prints important events such as tutor choices, stack object creatio
 - Add richer control, aggro, ramp, and voltron fixture decks for strategy regression tests.
 - Add partner/background commander handling.
 - Add more exact card behaviors and triggered abilities.
-- Add Nested Responses / Counterplay v1, then grow Interaction Windows v1 into a fuller stack and priority model.
+- Harden Nested Responses / Counterplay v1 with richer fixtures, then grow Interaction Windows v1 toward a fuller stack and priority model.
 - Improve mulligan heuristics.
 - Add richer matchup summaries.
 - Add SQLite cache once the local JSON store becomes too small.

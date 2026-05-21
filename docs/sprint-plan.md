@@ -10,14 +10,14 @@ This document tracks the interaction/stack/priority sprint and the next safe upg
 - Step 2.5: Harden Stack Objects v1 - Done
 - Step 3: Priority Passes v1 - Done
 - Step 3.5: Harden Priority Passes v1 - Done
-- Step 3.6: Agent harness docs - In progress
-- Step 4: Nested Responses / Counterplay v1 - Next
+- Step 3.6: Agent harness docs - Done
+- Step 4: Nested Responses / Counterplay v1 - Implemented
 
-## Step 4 Target
+## Step 4 Status
 
-Add one-deep nested response/counterplay without building a full MTG stack.
+One-deep nested response/counterplay is implemented without building a full MTG stack.
 
-Planned scope:
+Current scope:
 
 - One response to a response.
 - Counterspell wars like A casts spell, B counters, A counters back.
@@ -33,6 +33,10 @@ Out of scope for Step 4:
 - Full LIFO multi-object rules engine.
 - Complete Oracle timing rules.
 
+## Next Target
+
+Harden Nested Responses / Counterplay v1 after more real-game fixture review, then expand production wiring for activated and triggered windows.
+
 ## Future Steps
 
 - Better production wiring for activated and triggered windows.
@@ -40,4 +44,3 @@ Out of scope for Step 4:
 - More exact combat and blocker modeling.
 - More exact card behaviors for common Commander staples.
 - Broader report support for stack/priority metrics.
-

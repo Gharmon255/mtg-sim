@@ -50,8 +50,8 @@ For docs-only changes, `npm run build` is enough unless the documentation descri
 - Add deterministic tests for behavior changes.
 - Update README/docs when simulator fidelity changes.
 - Keep the behavior-driven architecture unless a task explicitly changes it.
+- For nested counterplay work, push response `StackObject`s; do not hide response behavior only inside priority metadata.
 - Prefer small commits with clear summaries of files changed.
 - Keep changes scoped to the requested step.
 - Do not convert the project to TypeScript.
 - Do not require paid APIs or a database server.
-

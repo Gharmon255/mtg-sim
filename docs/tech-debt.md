@@ -9,7 +9,8 @@ Known issues and cleanup targets for future agents.
 - `stackObjectsProcessed` and `stackObjectsResolved` may need future `ReportGenerator` wiring.
 - Some direct `StackManager` tests exist for guard behavior only; behavior assertions should prefer production `InteractionEngine.attemptToStop` paths.
 - Activated and triggered production windows are limited even though the model supports their window types.
-- Board wipe and combo integration should continue expanding with realistic game-state fixtures.
+- Board wipe and combo priority integration tests exist; they should continue expanding with realistic game-state fixtures.
+- Nested Responses / Counterplay v1 has one-deep counterspell/protection coverage, but no 3+ deep counter wars or repeated priority loops.
 
 ## Combat
 
@@ -34,4 +35,3 @@ Known issues and cleanup targets for future agents.
 - Missing Scryfall data lowers analyzer confidence.
 - Placeholder cards can still make imported decks look weaker or less synergistic than they are.
 - Local JSON cache may eventually need SQLite or a bulk-data refresh workflow.
-

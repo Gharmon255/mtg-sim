@@ -1,3 +1,6 @@
+const { ACTION_TYPES, WINDOW_TYPES, createInteractionWindow } = require('./InteractionWindow');
+const { StackObject } = require('./StackObject');
+
 class PriorityManager {
   getPriorityOrder(gameState, sourcePlayer) {
     return priorityOrder(gameState, sourcePlayer);
@@ -69,21 +72,80 @@ class PriorityManager {
       };
       priority.responses.push(response);
       recordDebug(gameState, `Priority response: ${responder.name} chooses ${answer.name} for ${stackObject.label()}: ${response.reason}.`);
-      const result = interactionEngine.applyPriorityAnswer(gameState, sourcePlayer, responder, answer, attempt);
-      response.result = summarizeResult(result);
-      if (result.protected) {
-        continue;
-      }
+      const nested = this.resolveOneDeepResponse(gameState, stackObject, sourcePlayer, responder, answer, attempt, interactionEngine);
+      response.result = summarizeResult(nested.result);
+      response.stackObjectId = nested.responseObject && nested.responseObject.id;
+      if (nested.counterplay) response.counterplay = nested.counterplay;
+      const result = nested.result;
       if (result.stopped) {
         recordDebug(gameState, `Priority pass complete: ${stackObject.label()} has a stopping response.`);
         return completePriority(stackObject, priority, result, 'stopped');
       }
+      recordDebug(gameState, `Priority pass complete: ${stackObject.label()} continues after one-deep counterplay.`);
+      return completePriority(stackObject, priority, result, 'passed');
     }
 
     const result = { stopped: false, reason: 'all_players_passed' };
     recordDebug(gameState, `Interaction window closes: ${stackObject.label()} resolves.`);
     recordDebug(gameState, `Priority pass complete: all responders passed for ${stackObject.label()}.`);
     return completePriority(stackObject, priority, result, 'passed');
+  }
+
+  resolveOneDeepResponse(gameState, stackObject, sourcePlayer, responder, answer, originalAttempt, interactionEngine) {
+    const responseObject = pushResponseStackObject(gameState, stackObject, responder, answer, originalAttempt);
+    const committed = interactionEngine.commitPriorityResponse(gameState, responder, answer, originalAttempt);
+    if (!committed.ok) {
+      responseObject.priorityResult = {
+        stopped: false,
+        reason: committed.result.reason || 'response_payment_failed',
+        by: responder.name,
+        card: answer.name,
+        parentStackObjectId: stackObject.id
+      };
+      recordDebug(gameState, `Nested response could not be committed: ${answer.name}.`);
+      resolveResponseObject(gameState, interactionEngine);
+      return { responseObject, counterplay: null, result: committed.result };
+    }
+    const counterplay = interactionEngine.attemptCounterplay
+      ? interactionEngine.attemptCounterplay(gameState, sourcePlayer, responseObject, responder, answer, originalAttempt)
+      : { stoppedResponse: false, reason: 'counterplay_unavailable' };
+    recordCounterplayPriority(responseObject, sourcePlayer, counterplay);
+
+    if (counterplay.stoppedResponse) {
+      responseObject.priorityResult = {
+        stopped: true,
+        by: counterplay.by,
+        card: counterplay.card,
+        reason: counterplay.reason || 'counterplay_stopped_response',
+        parentStackObjectId: stackObject.id
+      };
+      recordDebug(gameState, `Nested response resolved first: ${responseObject.label()} was stopped by ${counterplay.card}.`);
+      resolveResponseObject(gameState, interactionEngine);
+      return {
+        responseObject,
+        counterplay,
+        result: {
+          stopped: false,
+          protected: Boolean(counterplay.protected),
+          by: responder.name,
+          card: answer.name,
+          protection: counterplay.card,
+          reason: 'response_stopped_by_counterplay'
+        }
+      };
+    }
+
+    const result = interactionEngine.finalizePriorityStop(gameState, sourcePlayer, responder, answer, originalAttempt);
+    responseObject.priorityResult = {
+      stopped: false,
+      by: responder.name,
+      card: answer.name,
+      reason: result.stopped ? 'response_resolved_and_stops_parent' : result.reason || 'response_resolved',
+      parentStackObjectId: stackObject.id
+    };
+    recordDebug(gameState, `Nested response resolved first: ${answer.name} resolves before ${stackObject.label()}.`);
+    resolveResponseObject(gameState, interactionEngine);
+    return { responseObject, counterplay, result };
   }
 }
 
@@ -105,6 +167,78 @@ function completePriority(stackObject, priority, result, status) {
   priority.result = result || { stopped: false, reason: 'no_priority_result' };
   if (stackObject) stackObject.priorityResult = priority.result;
   return priority.result;
+}
+
+function pushResponseStackObject(gameState, parentObject, responder, answer, originalAttempt) {
+  const responseWindow = createInteractionWindow(responder, {
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: originalAttempt.kind || ACTION_TYPES.HIGH_IMPACT,
+    label: answer.name,
+    sourceCard: answer,
+    targetPlayer: parentObject.sourcePlayer,
+    impactScore: answer.answerPriorityScore || answer.counterPriorityScore || parentObject.impactScore || 60,
+    canBeCountered: true,
+    canBeRemoved: false,
+    canBeProtected: originalAttempt.canBeProtected,
+    reason: `${answer.name} responds to ${parentObject.label()}`,
+    debug: {
+      respondsTo: parentObject.id,
+      responseDepth: 1
+    }
+  });
+  const responseObject = StackObject.fromWindow(responseWindow, gameState, {
+    parentStackObjectId: parentObject.id,
+    respondsTo: parentObject.id,
+    isResponse: true,
+    responseDepth: 1,
+    debug: {
+      respondsTo: parentObject.id,
+      responseDepth: 1,
+      responseToCard: parentObject.sourceCard && parentObject.sourceCard.name
+    }
+  });
+  responseObject.priority = initializePriority(responseObject);
+  responseObject.priority.status = 'response-pending';
+  responseObject.priority.parentStackObjectId = parentObject.id;
+  responseObject.priority.ordering = 'one-deep-counterplay';
+  gameState.stackManager.push(responseObject);
+  recordDebug(gameState, `Nested response object pushed: ${responseObject.id} ${answer.name} responds to ${parentObject.id}. Stack size ${gameState.stackManager.size()}.`);
+  return responseObject;
+}
+
+function recordCounterplayPriority(responseObject, sourcePlayer, counterplay) {
+  if (!responseObject || !responseObject.priority) return;
+  const playerName = sourcePlayer ? sourcePlayer.name : 'Unknown player';
+  responseObject.priority.order = [playerName];
+  if (counterplay && counterplay.stoppedResponse) {
+    responseObject.priority.responses.push({
+      player: playerName,
+      card: counterplay.card,
+      reason: counterplay.reason || 'one-deep counterplay'
+    });
+    responseObject.priority.status = 'stopped';
+    responseObject.priority.result = {
+      stopped: true,
+      by: counterplay.by,
+      card: counterplay.card,
+      reason: counterplay.reason || 'counterplay_stopped_response'
+    };
+    return;
+  }
+  responseObject.priority.passes.push({
+    player: playerName,
+    role: 'counterplay',
+    reason: counterplay && counterplay.reason ? counterplay.reason : 'no legal counterplay'
+  });
+  responseObject.priority.status = 'passed';
+  responseObject.priority.result = { stopped: false, reason: 'response_resolved' };
+}
+
+function resolveResponseObject(gameState, interactionEngine) {
+  if (!gameState || !gameState.stackManager) return { stopped: false, reason: 'missing_stack_manager' };
+  const result = gameState.stackManager.resolvePending(gameState, interactionEngine);
+  recordDebug(gameState, `Nested response moved through LIFO resolution: ${result.reason || (result.stopped ? 'stopped' : 'resolved')}.`);
+  return result;
 }
 
 function priorityOrder(gameState, sourcePlayer) {

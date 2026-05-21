@@ -19,6 +19,10 @@ class StackObject {
     this.result = values.result || null;
     this.priority = values.priority || null;
     this.priorityResult = values.priorityResult || null;
+    this.parentStackObjectId = values.parentStackObjectId || values.respondsTo || null;
+    this.respondsTo = values.respondsTo || this.parentStackObjectId;
+    this.isResponse = Boolean(values.isResponse || this.respondsTo);
+    this.responseDepth = Number(values.responseDepth || (this.isResponse ? 1 : 0));
     this.createdAtTurn = values.createdAtTurn;
     this.turnIndex = values.turnIndex !== undefined ? values.turnIndex : values.createdAtTurn;
     this.debug = values.debug || (window && window.debug) || {};

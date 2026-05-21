@@ -53,15 +53,12 @@ class InteractionEngine {
     return chooseAnswer(player, attempt, this.roleResolver);
   }
 
-  applyPriorityAnswer(gameState, actingPlayer, opponent, answer, normalizedAttempt) {
-    gameState.recordDebug && gameState.recordDebug(`${opponent.name} chooses ${answer.name} for ${normalizedAttempt.label}: ${answer.responseReason || 'highest available response score'}.`);
-    const protectedAttempt = consumeProtection(actingPlayer, normalizedAttempt, this.roleResolver);
-    if (!consumeCard(opponent, answer)) {
-      gameState.recordDebug && gameState.recordDebug(`${opponent.name} could not pay for ${answer.name}; response skipped.`);
-      return { stopped: false, reason: 'response_payment_failed', by: opponent.name, card: answer.name };
-    }
-    recordInteraction(opponent, answer, normalizedAttempt, this.roleResolver);
-    recordInteractionPaymentDebug(gameState, opponent, answer);
+  applyPriorityAnswer(gameState, actingPlayer, opponent, answer, normalizedAttempt, options = {}) {
+    const protectedAttempt = options.allowImmediateProtection === false
+      ? null
+      : consumeProtection(actingPlayer, normalizedAttempt, this.roleResolver);
+    const committed = this.commitPriorityResponse(gameState, opponent, answer, normalizedAttempt);
+    if (!committed.ok) return committed.result;
     if (protectedAttempt) {
       gameState.record(`${actingPlayer.name} protects ${normalizedAttempt.label} with ${protectedAttempt.name} from ${opponent.name}'s ${answer.name}.`);
       recordInteractionPaymentDebug(gameState, actingPlayer, protectedAttempt);
@@ -74,11 +71,77 @@ class InteractionEngine {
         protection: protectedAttempt.name
       };
     }
+    return this.finalizePriorityStop(gameState, actingPlayer, opponent, answer, normalizedAttempt);
+  }
+
+  commitPriorityResponse(gameState, opponent, answer, normalizedAttempt) {
+    gameState.recordDebug && gameState.recordDebug(`${opponent.name} chooses ${answer.name} for ${normalizedAttempt.label}: ${answer.responseReason || 'highest available response score'}.`);
+    if (!consumeCard(opponent, answer)) {
+      gameState.recordDebug && gameState.recordDebug(`${opponent.name} could not pay for ${answer.name}; response skipped.`);
+      return {
+        ok: false,
+        result: { stopped: false, reason: 'response_payment_failed', by: opponent.name, card: answer.name }
+      };
+    }
+    recordInteraction(opponent, answer, normalizedAttempt, this.roleResolver);
+    recordInteractionPaymentDebug(gameState, opponent, answer);
+    return { ok: true };
+  }
+
+  finalizePriorityStop(gameState, actingPlayer, opponent, answer, normalizedAttempt) {
     const priority = answer.counterPriorityScore || answer.answerPriorityScore || 0;
     gameState.record(`${opponent.name} stops ${actingPlayer.name}'s ${normalizedAttempt.label} with ${answer.name}.`);
     gameState.recordDebug && gameState.recordDebug(`${answer.name} used to stop ${normalizedAttempt.label}. Priority score: ${priority}.`);
     recordStoppedAttempt(opponent, normalizedAttempt);
     return { stopped: true, by: opponent.name, card: answer.name };
+  }
+
+  attemptCounterplay(gameState, actingPlayer, responseObject, responder, responseCard, originalAttempt) {
+    if (!actingPlayer || !responseObject || !responseCard) {
+      return { stoppedResponse: false, reason: 'missing_counterplay_context' };
+    }
+    const responseAttempt = {
+      ...originalAttempt,
+      kind: originalAttempt.kind,
+      label: responseCard.name,
+      card: responseCard,
+      sourcePlayer: responder,
+      targetPlayer: actingPlayer,
+      canBeCountered: true,
+      canBeRemoved: false,
+      canBeProtected: originalAttempt.canBeProtected,
+      reason: `${responseCard.name} would stop ${originalAttempt.label}`,
+      interactionWindow: responseObject.window,
+      nestedResponse: true
+    };
+    gameState.recordDebug && gameState.recordDebug(`Counterplay opportunity: ${actingPlayer.name} may answer ${responder.name}'s ${responseCard.name}.`);
+    const counterplay = chooseAnswer(actingPlayer, responseAttempt, this.roleResolver);
+    if (!counterplay) {
+      gameState.recordDebug && gameState.recordDebug(`Counterplay pass: ${actingPlayer.name} has no legal answer to ${responseCard.name}.`);
+      return { stoppedResponse: false, reason: 'no_legal_counterplay' };
+    }
+    if (!consumeCard(actingPlayer, counterplay)) {
+      gameState.recordDebug && gameState.recordDebug(`Counterplay skipped: ${actingPlayer.name} could not pay for ${counterplay.name}.`);
+      return { stoppedResponse: false, reason: 'counterplay_payment_failed', by: actingPlayer.name, card: counterplay.name };
+    }
+    recordInteraction(actingPlayer, counterplay, responseAttempt, this.roleResolver);
+    recordInteractionPaymentDebug(gameState, actingPlayer, counterplay);
+    const tags = new Set(counterplay.tags || []);
+    const protectedResponse = tags.has('protection');
+    if (protectedResponse) {
+      gameState.record(`${actingPlayer.name} protects ${originalAttempt.label} with ${counterplay.name} from ${responder.name}'s ${responseCard.name}.`);
+      gameState.recordDebug && gameState.recordDebug(`${counterplay.name} used as one-deep counterplay to defend ${originalAttempt.label}.`);
+    } else {
+      gameState.record(`${actingPlayer.name} stops ${responder.name}'s ${responseCard.name} with ${counterplay.name}.`);
+      gameState.recordDebug && gameState.recordDebug(`${counterplay.name} used as one-deep counterplay against ${responseCard.name}.`);
+    }
+    return {
+      stoppedResponse: true,
+      by: actingPlayer.name,
+      card: counterplay.name,
+      protected: protectedResponse,
+      reason: protectedResponse ? 'protected_from_response' : 'countered_response'
+    };
   }
 
   resolveWindow(gameState, actingPlayer, window) {
