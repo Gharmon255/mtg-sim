@@ -46,6 +46,11 @@ function testInteractionWindowsCommand() {
     ['Stopped original spell does not open Rhystic-style trigger', stoppedOriginalSpellDoesNotOpenRhysticTrigger],
     ['Tutor spell cast can open Rhystic-style trigger window', tutorCastCanOpenRhysticTrigger],
     ['Multiple Rhystic-style controllers open sequential trigger windows', multipleRhysticControllersOpenSequentialWindows],
+    ['Mystic Remora-style trigger opens and resolves on noncreature cast', mysticNonCreatureTriggerResolves],
+    ['Mystic Remora-style trigger can be stopped', mysticNonCreatureTriggerStopped],
+    ['Creature cast does not open Mystic Remora-style trigger', creatureCastDoesNotOpenMysticTrigger],
+    ['No Mystic permanent means no Mystic Remora-style trigger', noMysticMeansNoMysticTrigger],
+    ['Mystic Remora-style trigger coexists with high-impact spell window', mysticTriggerCoexistsWithHighImpactSpellWindow],
     ['Low-impact opponent cast does not open Rhystic-style trigger window', lowImpactCastDoesNotOpenRhysticWindow],
     ['No Rhystic-style permanent means no opponent-cast trigger window', noRhysticMeansNoOpponentCastTrigger],
     ['Unanswered lethal combat resolves without false interaction metrics', unansweredLethalCombatResolves]
@@ -967,6 +972,110 @@ function multipleRhysticControllersOpenSequentialWindows() {
     && studyA.metrics.interactionWindowsOpened === 1
     && studyB.metrics.interactionWindowsOpened === 1
     && caster.metrics.interactionWindowsOpened === 1;
+}
+
+function mysticNonCreatureTriggerResolves() {
+  const remoraPlayer = realPlayer('Remora Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('Ponder', ['draw'], 1);
+  remoraPlayer.addPermanent(realCard('Mystic Remora', 'Enchantment', '{U}', ['draw', 'high-impact']));
+  remoraPlayer.library.push(realCard('Drawn From Remora', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, remoraPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => remoraPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  const triggerWindow = originalHistory(gameState, 'Mystic Remora trigger');
+  return triggerWindow
+    && triggerWindow.windowType === WINDOW_TYPES.TRIGGERED_ABILITY
+    && triggerWindow.priorityResult.reason === 'all_players_passed'
+    && triggerWindow.debug.castCard === 'Ponder'
+    && remoraPlayer.cardsDrawn === 1
+    && remoraPlayer.hand.some((card) => card.name === 'Drawn From Remora')
+    && remoraPlayer.metrics.mysticRemoraDraws === 1
+    && remoraPlayer.metrics.interactionWindowsOpened === 1
+    && !caster.metrics.interactionWindowsOpened
+    && debugIncludes(gameState, 'Mystic Remora drew 1 card for Remora Player');
+}
+
+function mysticNonCreatureTriggerStopped() {
+  const remoraPlayer = realPlayer('Remora Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster', { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  const castCard = spell('Ponder', ['draw'], 1);
+  remoraPlayer.addPermanent(realCard('Mystic Remora', 'Enchantment', '{U}', ['draw', 'high-impact']));
+  remoraPlayer.library.push(realCard('Would Have Drawn', 'Instant', '{U}', []));
+  caster.addPermanent(realCard('Forest', 'Land', '', ['land']), { summoningSick: false });
+  caster.hand.push(realCard('Nature\'s Claim', 'Instant', '{G}', ['removal']));
+  const gameState = new GameState([caster, remoraPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => remoraPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  const triggerWindow = originalHistory(gameState, 'Mystic Remora trigger');
+  const response = responseHistory(gameState);
+  return triggerWindow
+    && response
+    && triggerWindow.stopped
+    && response.respondsTo === triggerWindow.id
+    && gameState.stackManager.history.filter((object) => object.isResponse).length === 1
+    && gameState.stackManager.history.length === 2
+    && remoraPlayer.cardsDrawn === 0
+    && !remoraPlayer.metrics.mysticRemoraDraws
+    && caster.metrics.removalUsed === 1
+    && debugIncludes(gameState, 'Mystic Remora trigger was stopped before Remora Player drew a card');
+}
+
+function creatureCastDoesNotOpenMysticTrigger() {
+  const remoraPlayer = realPlayer('Remora Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = creature('Llanowar Elves', []);
+  remoraPlayer.addPermanent(realCard('Mystic Remora', 'Enchantment', '{U}', ['draw', 'high-impact']));
+  remoraPlayer.library.push(realCard('Should Stay Put', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, remoraPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => remoraPlayer }, { type: 'cast_creature', card: castCard }, castCard);
+  return !originalHistory(gameState, 'Mystic Remora trigger')
+    && gameState.stackManager.history.length === 0
+    && remoraPlayer.cardsDrawn === 0
+    && !remoraPlayer.metrics.interactionWindowsOpened;
+}
+
+function noMysticMeansNoMysticTrigger() {
+  const observer = realPlayer('Observer', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('Ponder', ['draw'], 1);
+  observer.library.push(realCard('Should Not Draw', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, observer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => observer }, { type: 'cast_draw', card: castCard }, castCard);
+  return !originalHistory(gameState, 'Mystic Remora trigger')
+    && gameState.stackManager.history.length === 0
+    && observer.cardsDrawn === 0
+    && !observer.metrics.interactionWindowsOpened
+    && !caster.metrics.interactionWindowsOpened;
+}
+
+function mysticTriggerCoexistsWithHighImpactSpellWindow() {
+  const remoraPlayer = realPlayer('Remora Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('The One Ring', ['draw', 'high-impact'], 4);
+  remoraPlayer.addPermanent(realCard('Mystic Remora', 'Enchantment', '{U}', ['draw', 'high-impact']));
+  remoraPlayer.library.push(realCard('Remora High Impact Draw', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, remoraPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => remoraPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  const spellWindow = originalHistory(gameState, 'The One Ring');
+  const triggerWindow = originalHistory(gameState, 'Mystic Remora trigger');
+  return spellWindow
+    && triggerWindow
+    && spellWindow.windowType === WINDOW_TYPES.SPELL_CAST
+    && triggerWindow.windowType === WINDOW_TYPES.TRIGGERED_ABILITY
+    && gameState.stackManager.history.filter((object) => object.isResponse).length === 0
+    && gameState.stackManager.history.length === 2
+    && remoraPlayer.cardsDrawn === 1
+    && caster.metrics.interactionWindowsOpened === 1
+    && remoraPlayer.metrics.interactionWindowsOpened === 1;
 }
 
 function lowImpactCastDoesNotOpenRhysticWindow() {

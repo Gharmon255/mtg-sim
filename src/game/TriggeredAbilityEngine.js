@@ -25,6 +25,9 @@ class TriggeredAbilityEngine {
         if (permanent.name === 'Rhystic Study') {
           this.triggerRhysticStudy(gameState, player, castingPlayer, castCard, permanent, options);
         }
+        if (isMysticRemoraPermanent(permanent)) {
+          this.triggerMysticRemora(gameState, player, castingPlayer, castCard, permanent, options);
+        }
       }
     }
   }
@@ -96,6 +99,43 @@ class TriggeredAbilityEngine {
     }
   }
 
+  triggerMysticRemora(gameState, owner, castingPlayer, castCard, permanent, options = {}) {
+    if (!shouldOpenMysticRemoraWindow(owner, castingPlayer, castCard, permanent, options, this.interactionEngine)) {
+      return;
+    }
+    const stopped = this.interactionEngine.attemptToStop(gameState, owner, createInteractionWindow(owner, {
+      windowType: WINDOW_TYPES.TRIGGERED_ABILITY,
+      actionType: ACTION_TYPES.HIGH_IMPACT,
+      label: 'Mystic Remora trigger',
+      sourceCard: permanent.card || permanent,
+      targetPlayer: castingPlayer,
+      impactScore: mysticRemoraImpactScore(owner, castingPlayer, castCard),
+      canBeCountered: true,
+      canBeRemoved: true,
+      canBeProtected: true,
+      reason: `${castingPlayer.name} cast noncreature spell ${castCard.name}; Mystic Remora may draw a card`,
+      debug: {
+        castCard: castCard.name,
+        castActionType: options.action ? options.action.type : null,
+        noncreatureHeuristic: nonCreatureClassificationReason(castCard)
+      }
+    }));
+    if (stopped.stopped) {
+      gameState.recordDebug && gameState.recordDebug(`Mystic Remora trigger was stopped before ${owner.name} drew a card.`);
+      return;
+    }
+    const before = owner.cardsDrawn || 0;
+    owner.draw(1);
+    const drawn = (owner.cardsDrawn || 0) - before;
+    if (drawn > 0) {
+      owner.metrics.mysticRemoraTriggers = (owner.metrics.mysticRemoraTriggers || 0) + 1;
+      owner.metrics.mysticRemoraDraws = (owner.metrics.mysticRemoraDraws || 0) + drawn;
+      gameState.recordDebug && gameState.recordDebug(`Mystic Remora drew ${drawn} card for ${owner.name}.`);
+    } else {
+      gameState.recordDebug && gameState.recordDebug(`Mystic Remora resolved for ${owner.name}, but no card was available to draw.`);
+    }
+  }
+
   triggerOneRing(gameState, player, permanent) {
     permanent.metadata.burdenCounters = Number(permanent.metadata.burdenCounters || 0) + 1;
     const damage = permanent.metadata.burdenCounters;
@@ -112,6 +152,13 @@ function shouldOpenRhysticStudyWindow(owner, castingPlayer, castCard, permanent,
   return Boolean(castCard.name && castingPlayer.name && owner.name);
 }
 
+function shouldOpenMysticRemoraWindow(owner, castingPlayer, castCard, permanent, options, interactionEngine) {
+  if (!interactionEngine || !owner || !castingPlayer || !castCard || !permanent) return false;
+  if (owner === castingPlayer || owner.eliminated || castingPlayer.eliminated) return false;
+  if (!isNonCreatureCast(castCard, options)) return false;
+  return Boolean(castCard.name && castingPlayer.name && owner.name);
+}
+
 function isInteractionRelevantCast(card, options = {}) {
   const tags = new Set(card.tags || []);
   if (tags.has('high-impact') || tags.has('wincon') || tags.has('stax') || tags.has('boardwipe')) return true;
@@ -120,9 +167,37 @@ function isInteractionRelevantCast(card, options = {}) {
   return Number(card.manaValue || 0) >= 4;
 }
 
+function isNonCreatureCast(card, options = {}) {
+  const tags = new Set(card.tags || []);
+  const typeLine = String(card.typeLine || '').toLowerCase();
+  if (tags.has('creature') || typeLine.includes('creature')) return false;
+  if (typeLine.trim()) return true;
+  if (['cast_creature'].includes((options.action || {}).type)) return false;
+  if (['cast_draw', 'cast_tutor', 'cast_removal', 'cast_counterspell', 'cast_boardwipe', 'cast_stax_piece', 'cast_wincon'].includes((options.action || {}).type)) {
+    return true;
+  }
+  if (['instant', 'sorcery', 'enchantment', 'artifact', 'planeswalker', 'battle'].some((tag) => tags.has(tag))) return true;
+  return false;
+}
+
+function nonCreatureClassificationReason(card) {
+  const typeLine = String(card.typeLine || '').trim();
+  if (typeLine) return `type line "${typeLine}"`;
+  const tags = (card.tags || []).join(', ');
+  return tags ? `tags ${tags}` : 'missing type data';
+}
+
 function rhysticImpactScore(owner, castingPlayer, castCard) {
   const base = Number(castCard.manaValue || 0) >= 4 ? 72 : 64;
   const tagBonus = (castCard.tags || []).some((tag) => ['high-impact', 'wincon', 'stax', 'boardwipe'].includes(tag)) ? 10 : 0;
+  const ownerBonus = ((owner.strategyProfile || {}).estimatedBracket || 1) >= 4 ? 5 : 0;
+  const casterBonus = ['combo', 'control'].includes((castingPlayer.strategyProfile || {}).primaryArchetype) ? 4 : 0;
+  return Math.min(95, base + tagBonus + ownerBonus + casterBonus);
+}
+
+function mysticRemoraImpactScore(owner, castingPlayer, castCard) {
+  const base = Number(castCard.manaValue || 0) >= 4 ? 74 : 66;
+  const tagBonus = (castCard.tags || []).some((tag) => ['high-impact', 'wincon', 'stax', 'boardwipe', 'tutor'].includes(tag)) ? 8 : 0;
   const ownerBonus = ((owner.strategyProfile || {}).estimatedBracket || 1) >= 4 ? 5 : 0;
   const casterBonus = ['combo', 'control'].includes((castingPlayer.strategyProfile || {}).primaryArchetype) ? 4 : 0;
   return Math.min(95, base + tagBonus + ownerBonus + casterBonus);
@@ -141,6 +216,14 @@ function shouldOpenSmotheringTitheWindow(owner, drawingPlayer, created) {
 function findPermanentCard(player, name) {
   const permanent = (player.battlefield || []).find((item) => item.name === name);
   return permanent ? (permanent.card || permanent) : { name };
+}
+
+function isMysticRemoraPermanent(permanent) {
+  if (!permanent) return false;
+  if (permanent.name === 'Mystic Remora') return true;
+  const card = permanent.card || permanent;
+  const tags = new Set(card.tags || permanent.tags || []);
+  return tags.has('mystic-remora') || tags.has('mystic-remora-style');
 }
 
 function shouldPayForTithe(owner, drawingPlayer) {
