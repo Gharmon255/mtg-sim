@@ -161,6 +161,8 @@ class PlayerState {
       treasureTriggers: 0,
       treasuresBySource: {},
       fetchTargetsChosen: {},
+      esperSentinelTriggers: 0,
+      esperSentinelDraws: 0,
       lossReason: null
     };
   }

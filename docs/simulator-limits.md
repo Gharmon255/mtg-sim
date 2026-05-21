@@ -9,13 +9,13 @@ This simulator is improving steadily, but it is not a full Magic rules engine.
 - Stack Objects are not the full MTG stack.
 - Nested Responses / Counterplay v1 is capped at one response object.
 - No repeated priority loops or 3+ deep stack/counter-war support yet.
-- Triggered and activated window types exist, and narrow TurnEngine draw-step Smothering Tithe-style triggers, TurnEngine opponent-cast Rhystic Study / Mystic Remora-style triggers, and UpkeepEngine/AbilityResolver high-impact Monolith untap paths are wired, but production simulation does not broadly open every ability yet.
+- Triggered and activated window types exist, and narrow TurnEngine draw-step Smothering Tithe-style triggers, TurnEngine opponent-cast Rhystic Study / Mystic Remora / Esper Sentinel-style triggers, and UpkeepEngine/AbilityResolver high-impact Monolith untap paths are wired, but production simulation does not broadly open every ability yet.
 - Triggered abilities may still resolve without stack history when no interaction engine/context is present or when the current gating does not consider the trigger interaction-relevant.
-- Rhystic Study-style opponent-cast wiring is name/impact gated and Mystic Remora-style wiring is name/noncreature gated. Neither path models exact tax payment rules, Mystic Remora cumulative upkeep, or every Esper Sentinel-style trigger yet.
-- Ambiguous casts with no type line and no clear action/tag metadata are treated conservatively and do not open Mystic Remora-style windows.
+- Rhystic Study-style opponent-cast wiring is name/impact gated; Mystic Remora-style wiring is name/noncreature gated; Esper Sentinel-style wiring is name/noncreature/first-spell gated. These paths do not model exact tax payment rules, exact Esper Sentinel power payments, Mystic Remora cumulative upkeep, or every draw-tax trigger yet.
+- Ambiguous casts with no type line and no clear action/tag metadata are treated conservatively and do not open Mystic Remora-style or Esper Sentinel-style windows.
 - Commander casts are not fully routed through opponent-cast triggered windows yet.
 - Some Grim Monolith / Mana Vault-style upkeep untap/payment paths intentionally resolve without a stack window until broader activated ability timing is modeled.
-- Interaction / Stack Summary report metrics are visibility signals. They do not dump full stack history, and Rhystic/Mystic draw counts remain heuristic benefits rather than exact tax/payment outcomes.
+- Interaction / Stack Summary report metrics are visibility signals. They do not dump full stack history, and Rhystic/Mystic/Esper draw counts remain heuristic benefits rather than exact tax/payment outcomes.
 - Replacement effects, layers, state-based actions, exact timing permissions, and many continuous effects are not fully modeled.
 
 ## Combat

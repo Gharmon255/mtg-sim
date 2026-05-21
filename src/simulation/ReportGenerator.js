@@ -97,6 +97,8 @@ class ReportGenerator {
         rhysticStudyDraws: 0,
         mysticRemoraTriggers: 0,
         mysticRemoraDraws: 0,
+        esperSentinelTriggers: 0,
+        esperSentinelDraws: 0,
         heldInteractionTurns: 0,
         boardWipesCast: 0,
         commanderDamageKills: 0,
@@ -223,6 +225,8 @@ class ReportGenerator {
         stats.rhysticStudyDraws += player.metrics.rhysticStudyDraws || 0;
         stats.mysticRemoraTriggers += player.metrics.mysticRemoraTriggers || 0;
         stats.mysticRemoraDraws += player.metrics.mysticRemoraDraws || 0;
+        stats.esperSentinelTriggers += player.metrics.esperSentinelTriggers || 0;
+        stats.esperSentinelDraws += player.metrics.esperSentinelDraws || 0;
         stats.heldInteractionTurns += player.metrics.heldInteractionTurns || 0;
         stats.boardWipesCast += player.metrics.boardWipesCast || 0;
         stats.tutorsUsed += player.metrics.tutorsUsed || 0;
@@ -366,6 +370,8 @@ class ReportGenerator {
       rhysticStudyDraws: stats.rhysticStudyDraws,
       mysticRemoraTriggers: stats.mysticRemoraTriggers,
       mysticRemoraDraws: stats.mysticRemoraDraws,
+      esperSentinelTriggers: stats.esperSentinelTriggers,
+      esperSentinelDraws: stats.esperSentinelDraws,
       heldInteractionTurns: stats.heldInteractionTurns,
       heldInteractionRate: percent(stats.heldInteractionTurns / Math.max(1, stats.games * 14)),
       boardWipesUsed: stats.boardWipesCast,
@@ -404,6 +410,7 @@ class ReportGenerator {
     lines.push(`  Nested counterplay events: ${report.interactionStackSummary.nestedCounterplayEvents}`);
     lines.push(`  Rhystic-style draws: ${report.interactionStackSummary.rhysticStudyDraws}`);
     lines.push(`  Mystic-style draws: ${report.interactionStackSummary.mysticRemoraDraws}`);
+    lines.push(`  Esper-style draws: ${report.interactionStackSummary.esperSentinelDraws}`);
     lines.push('');
     for (const deck of report.decks) {
       lines.push(`${deck.name}`);
@@ -470,6 +477,7 @@ class ReportGenerator {
       lines.push(`    Nested counterplay events: ${deck.nestedCounterplayEvents}`);
       lines.push(`    Rhystic-style triggers/draws: ${deck.rhysticStudyTriggers} / ${deck.rhysticStudyDraws}`);
       lines.push(`    Mystic-style triggers/draws: ${deck.mysticRemoraTriggers} / ${deck.mysticRemoraDraws}`);
+      lines.push(`    Esper-style triggers/draws: ${deck.esperSentinelTriggers} / ${deck.esperSentinelDraws}`);
       lines.push('  Sequencing Report:');
       lines.push(`    Tutors cast: ${deck.tutorsUsed}`);
       lines.push(`    Best tutor target: ${deck.mostCommonTutorTarget}`);
@@ -608,6 +616,7 @@ function aggregateInteractionStack(decks) {
     summary.nestedCounterplayEvents += deck.nestedCounterplayEvents || 0;
     summary.rhysticStudyDraws += deck.rhysticStudyDraws || 0;
     summary.mysticRemoraDraws += deck.mysticRemoraDraws || 0;
+    summary.esperSentinelDraws += deck.esperSentinelDraws || 0;
     return summary;
   }, {
     interactionWindowsOpened: 0,
@@ -617,7 +626,8 @@ function aggregateInteractionStack(decks) {
     priorityResponses: 0,
     nestedCounterplayEvents: 0,
     rhysticStudyDraws: 0,
-    mysticRemoraDraws: 0
+    mysticRemoraDraws: 0,
+    esperSentinelDraws: 0
   });
 }
 

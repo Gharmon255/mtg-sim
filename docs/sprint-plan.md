@@ -19,6 +19,7 @@ This document tracks the interaction/stack/priority sprint and the next safe upg
 - Step 6.5: Harden Rhystic-style Opponent-Cast Triggered Windows - Done
 - Step 7: Mystic Remora-style Opponent Noncreature Cast Triggered Window - Implemented
 - Step 7.5: Harden Mystic Remora-style Triggered Windows - Done
+- Step 8: Esper Sentinel-style Opponent Noncreature Cast Triggered Window - Implemented
 
 ## Step 4 Status
 
@@ -59,6 +60,10 @@ Mystic Remora-style opponent-cast trigger behavior is implemented through the ex
 ## Step 7.5 Status
 
 Mystic Remora-style trigger behavior is hardened with coexistence coverage for Rhystic + Mystic sources, conservative no-type classification, and low-mana-value noncreature casts that trigger Mystic without triggering Rhystic. Commander casts remain a documented future hook.
+
+## Step 8 Status
+
+Esper Sentinel-style opponent-cast trigger behavior is implemented through the existing `TurnEngine.castAction` -> `TriggeredAbilityEngine.afterOpponentCast` hook. The path opens triggered windows for a caster's first qualifying opponent noncreature spell in the current simulator turn key, draws one card if the window resolves, skips the draw if stopped, and keeps exact power-based payment/tax logic out of scope.
 
 ## Next Target
 

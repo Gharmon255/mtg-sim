@@ -28,6 +28,9 @@ class TriggeredAbilityEngine {
         if (isMysticRemoraPermanent(permanent)) {
           this.triggerMysticRemora(gameState, player, castingPlayer, castCard, permanent, options);
         }
+        if (isEsperSentinelPermanent(permanent)) {
+          this.triggerEsperSentinel(gameState, player, castingPlayer, castCard, permanent, options);
+        }
       }
     }
   }
@@ -136,6 +139,45 @@ class TriggeredAbilityEngine {
     }
   }
 
+  triggerEsperSentinel(gameState, owner, castingPlayer, castCard, permanent, options = {}) {
+    if (!shouldOpenEsperSentinelWindow(owner, castingPlayer, castCard, permanent, options, this.interactionEngine, gameState)) {
+      return;
+    }
+    markEsperSentinelTrigger(permanent, gameState, castingPlayer);
+    const stopped = this.interactionEngine.attemptToStop(gameState, owner, createInteractionWindow(owner, {
+      windowType: WINDOW_TYPES.TRIGGERED_ABILITY,
+      actionType: ACTION_TYPES.HIGH_IMPACT,
+      label: 'Esper Sentinel trigger',
+      sourceCard: permanent.card || permanent,
+      targetPlayer: castingPlayer,
+      impactScore: esperSentinelImpactScore(owner, castingPlayer, castCard),
+      canBeCountered: true,
+      canBeRemoved: true,
+      canBeProtected: true,
+      reason: `${castingPlayer.name} cast first noncreature spell ${castCard.name}; Esper Sentinel may draw a card`,
+      debug: {
+        castCard: castCard.name,
+        castActionType: options.action ? options.action.type : null,
+        noncreatureHeuristic: nonCreatureClassificationReason(castCard),
+        firstSpellGate: esperSentinelTurnKey(gameState, castingPlayer)
+      }
+    }));
+    if (stopped.stopped) {
+      gameState.recordDebug && gameState.recordDebug(`Esper Sentinel trigger was stopped before ${owner.name} drew a card.`);
+      return;
+    }
+    const before = owner.cardsDrawn || 0;
+    owner.draw(1);
+    const drawn = (owner.cardsDrawn || 0) - before;
+    if (drawn > 0) {
+      owner.metrics.esperSentinelTriggers = (owner.metrics.esperSentinelTriggers || 0) + 1;
+      owner.metrics.esperSentinelDraws = (owner.metrics.esperSentinelDraws || 0) + drawn;
+      gameState.recordDebug && gameState.recordDebug(`Esper Sentinel drew ${drawn} card for ${owner.name}.`);
+    } else {
+      gameState.recordDebug && gameState.recordDebug(`Esper Sentinel resolved for ${owner.name}, but no card was available to draw.`);
+    }
+  }
+
   triggerOneRing(gameState, player, permanent) {
     permanent.metadata.burdenCounters = Number(permanent.metadata.burdenCounters || 0) + 1;
     const damage = permanent.metadata.burdenCounters;
@@ -156,6 +198,14 @@ function shouldOpenMysticRemoraWindow(owner, castingPlayer, castCard, permanent,
   if (!interactionEngine || !owner || !castingPlayer || !castCard || !permanent) return false;
   if (owner === castingPlayer || owner.eliminated || castingPlayer.eliminated) return false;
   if (!isNonCreatureCast(castCard, options)) return false;
+  return Boolean(castCard.name && castingPlayer.name && owner.name);
+}
+
+function shouldOpenEsperSentinelWindow(owner, castingPlayer, castCard, permanent, options, interactionEngine, gameState) {
+  if (!interactionEngine || !owner || !castingPlayer || !castCard || !permanent) return false;
+  if (owner === castingPlayer || owner.eliminated || castingPlayer.eliminated) return false;
+  if (!isNonCreatureCast(castCard, options)) return false;
+  if (hasEsperSentinelTriggeredThisTurn(permanent, gameState, castingPlayer)) return false;
   return Boolean(castCard.name && castingPlayer.name && owner.name);
 }
 
@@ -203,6 +253,14 @@ function mysticRemoraImpactScore(owner, castingPlayer, castCard) {
   return Math.min(95, base + tagBonus + ownerBonus + casterBonus);
 }
 
+function esperSentinelImpactScore(owner, castingPlayer, castCard) {
+  const base = Number(castCard.manaValue || 0) >= 4 ? 73 : 67;
+  const tagBonus = (castCard.tags || []).some((tag) => ['high-impact', 'wincon', 'stax', 'boardwipe', 'tutor'].includes(tag)) ? 7 : 0;
+  const ownerBonus = ((owner.strategyProfile || {}).estimatedBracket || 1) >= 4 ? 4 : 0;
+  const casterBonus = ['combo', 'control'].includes((castingPlayer.strategyProfile || {}).primaryArchetype) ? 4 : 0;
+  return Math.min(95, base + tagBonus + ownerBonus + casterBonus);
+}
+
 function shouldOpenSmotheringTitheWindow(owner, drawingPlayer, created) {
   if (!created) return false;
   const ownerProfile = owner.strategyProfile || {};
@@ -224,6 +282,33 @@ function isMysticRemoraPermanent(permanent) {
   const card = permanent.card || permanent;
   const tags = new Set(card.tags || permanent.tags || []);
   return tags.has('mystic-remora') || tags.has('mystic-remora-style');
+}
+
+function isEsperSentinelPermanent(permanent) {
+  if (!permanent) return false;
+  if (permanent.name === 'Esper Sentinel') return true;
+  const card = permanent.card || permanent;
+  const tags = new Set(card.tags || permanent.tags || []);
+  return tags.has('esper-sentinel') || tags.has('esper-sentinel-style');
+}
+
+function hasEsperSentinelTriggeredThisTurn(permanent, gameState, castingPlayer) {
+  const metadata = permanent.metadata || {};
+  const key = esperSentinelTurnKey(gameState, castingPlayer);
+  return Boolean((metadata.esperSentinelCastTriggers || {})[key]);
+}
+
+function markEsperSentinelTrigger(permanent, gameState, castingPlayer) {
+  permanent.metadata = permanent.metadata || {};
+  permanent.metadata.esperSentinelCastTriggers = permanent.metadata.esperSentinelCastTriggers || {};
+  permanent.metadata.esperSentinelCastTriggers[esperSentinelTurnKey(gameState, castingPlayer)] = true;
+}
+
+function esperSentinelTurnKey(gameState, castingPlayer) {
+  const gameTurn = gameState && gameState.turn !== undefined ? gameState.turn : 0;
+  const playerTurn = castingPlayer && castingPlayer.turnCount !== undefined ? castingPlayer.turnCount : 0;
+  const playerId = castingPlayer && castingPlayer.id !== undefined ? castingPlayer.id : 'unknown';
+  return `${gameTurn}:${playerTurn}:${playerId}`;
 }
 
 function shouldPayForTithe(owner, drawingPlayer) {

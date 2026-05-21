@@ -55,11 +55,18 @@ function testInteractionWindowsCommand() {
     ['Rhystic and Mystic triggers coexist without double-counting windows', rhysticAndMysticCoexistOnHighImpactNoncreature],
     ['Ambiguous no-type cast does not open Mystic Remora-style trigger', ambiguousNoTypeCastDoesNotOpenMysticTrigger],
     ['Low-MV noncreature triggers Mystic but not Rhystic', lowMvNonCreatureTriggersMysticNotRhystic],
+    ['Esper Sentinel-style trigger opens and resolves on noncreature cast', esperNonCreatureTriggerResolves],
+    ['Esper Sentinel-style trigger can be stopped', esperNonCreatureTriggerStopped],
+    ['Creature cast does not open Esper Sentinel-style trigger', creatureCastDoesNotOpenEsperTrigger],
+    ['No Esper permanent means no Esper Sentinel-style trigger', noEsperMeansNoEsperTrigger],
+    ['Ambiguous no-type cast does not open Esper Sentinel-style trigger', ambiguousNoTypeCastDoesNotOpenEsperTrigger],
+    ['Esper Sentinel-style trigger only opens for first noncreature spell per caster turn', esperOnlyFirstNonCreaturePerCasterTurn],
+    ['Rhystic, Mystic, and Esper triggers coexist without stack depth changes', rhysticMysticEsperCoexistOnHighImpactNoncreature],
     ['Low-impact opponent cast does not open Rhystic-style trigger window', lowImpactCastDoesNotOpenRhysticWindow],
     ['No Rhystic-style permanent means no opponent-cast trigger window', noRhysticMeansNoOpponentCastTrigger],
     ['Unanswered lethal combat resolves without false interaction metrics', unansweredLethalCombatResolves],
     ['ReportGenerator surfaces interaction stack summary', reportGeneratorSurfacesInteractionStackSummary],
-    ['ReportGenerator includes Rhystic and Mystic draw metrics', reportGeneratorIncludesTaxDrawMetrics],
+    ['ReportGenerator includes Rhystic, Mystic, and Esper draw metrics', reportGeneratorIncludesTaxDrawMetrics],
     ['ReportGenerator handles no-interaction metrics cleanly', reportGeneratorHandlesNoInteractionMetrics]
   ];
 
@@ -1160,6 +1167,169 @@ function lowMvNonCreatureTriggersMysticNotRhystic() {
     && !caster.metrics.interactionWindowsOpened;
 }
 
+function esperNonCreatureTriggerResolves() {
+  const sentinelPlayer = realPlayer('Sentinel Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('Ponder', ['draw'], 1);
+  sentinelPlayer.addPermanent(realCard('Esper Sentinel', 'Artifact Creature', '{W}', ['draw', 'esper-sentinel']));
+  sentinelPlayer.library.push(realCard('Drawn From Sentinel', 'Instant', '{W}', []));
+  const gameState = new GameState([caster, sentinelPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => sentinelPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  const triggerWindow = originalHistory(gameState, 'Esper Sentinel trigger');
+  return triggerWindow
+    && triggerWindow.windowType === WINDOW_TYPES.TRIGGERED_ABILITY
+    && triggerWindow.priorityResult.reason === 'all_players_passed'
+    && triggerWindow.debug.castCard === 'Ponder'
+    && triggerWindow.debug.firstSpellGate
+    && sentinelPlayer.cardsDrawn === 1
+    && sentinelPlayer.hand.some((card) => card.name === 'Drawn From Sentinel')
+    && sentinelPlayer.metrics.esperSentinelDraws === 1
+    && sentinelPlayer.metrics.interactionWindowsOpened === 1
+    && !caster.metrics.interactionWindowsOpened
+    && debugIncludes(gameState, 'Esper Sentinel drew 1 card for Sentinel Player');
+}
+
+function esperNonCreatureTriggerStopped() {
+  const sentinelPlayer = realPlayer('Sentinel Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster', { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  const castCard = spell('Ponder', ['draw'], 1);
+  sentinelPlayer.addPermanent(realCard('Esper Sentinel', 'Artifact Creature', '{W}', ['draw', 'esper-sentinel']));
+  sentinelPlayer.library.push(realCard('Would Have Drawn', 'Instant', '{W}', []));
+  caster.addPermanent(realCard('Forest', 'Land', '', ['land']), { summoningSick: false });
+  caster.hand.push(realCard('Nature\'s Claim', 'Instant', '{G}', ['removal']));
+  const gameState = new GameState([caster, sentinelPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => sentinelPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  const triggerWindow = originalHistory(gameState, 'Esper Sentinel trigger');
+  const response = responseHistory(gameState);
+  return triggerWindow
+    && response
+    && triggerWindow.stopped
+    && response.respondsTo === triggerWindow.id
+    && gameState.stackManager.history.filter((object) => object.isResponse).length === 1
+    && gameState.stackManager.history.length === 2
+    && sentinelPlayer.cardsDrawn === 0
+    && !sentinelPlayer.metrics.esperSentinelDraws
+    && caster.metrics.removalUsed === 1
+    && debugIncludes(gameState, 'Esper Sentinel trigger was stopped before Sentinel Player drew a card');
+}
+
+function creatureCastDoesNotOpenEsperTrigger() {
+  const sentinelPlayer = realPlayer('Sentinel Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = creature('Llanowar Elves', []);
+  sentinelPlayer.addPermanent(realCard('Esper Sentinel', 'Artifact Creature', '{W}', ['draw', 'esper-sentinel']));
+  sentinelPlayer.library.push(realCard('Should Stay Put', 'Instant', '{W}', []));
+  const gameState = new GameState([caster, sentinelPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => sentinelPlayer }, { type: 'cast_creature', card: castCard }, castCard);
+  return !originalHistory(gameState, 'Esper Sentinel trigger')
+    && gameState.stackManager.history.length === 0
+    && sentinelPlayer.cardsDrawn === 0
+    && !sentinelPlayer.metrics.interactionWindowsOpened;
+}
+
+function noEsperMeansNoEsperTrigger() {
+  const observer = realPlayer('Observer', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('Ponder', ['draw'], 1);
+  observer.library.push(realCard('Should Not Draw', 'Instant', '{W}', []));
+  const gameState = new GameState([caster, observer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => observer }, { type: 'cast_draw', card: castCard }, castCard);
+  return !originalHistory(gameState, 'Esper Sentinel trigger')
+    && gameState.stackManager.history.length === 0
+    && observer.cardsDrawn === 0
+    && !observer.metrics.interactionWindowsOpened
+    && !caster.metrics.interactionWindowsOpened;
+}
+
+function ambiguousNoTypeCastDoesNotOpenEsperTrigger() {
+  const sentinelPlayer = realPlayer('Sentinel Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = {
+    name: 'Ambiguous Card',
+    tags: [],
+    manaValue: 1,
+    manaCost: '{1}',
+    oracleText: ''
+  };
+  sentinelPlayer.addPermanent(realCard('Esper Sentinel', 'Artifact Creature', '{W}', ['draw', 'esper-sentinel']));
+  sentinelPlayer.library.push(realCard('Should Stay Put', 'Instant', '{W}', []));
+  const gameState = new GameState([caster, sentinelPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => sentinelPlayer }, { type: 'cast_unknown', card: castCard }, castCard);
+  return !originalHistory(gameState, 'Esper Sentinel trigger')
+    && gameState.stackManager.history.length === 0
+    && sentinelPlayer.cardsDrawn === 0
+    && !sentinelPlayer.metrics.esperSentinelDraws
+    && !sentinelPlayer.metrics.interactionWindowsOpened;
+}
+
+function esperOnlyFirstNonCreaturePerCasterTurn() {
+  const sentinelPlayer = realPlayer('Sentinel Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const first = spell('Ponder', ['draw'], 1);
+  const second = spell('Preordain', ['draw'], 1);
+  sentinelPlayer.addPermanent(realCard('Esper Sentinel', 'Artifact Creature', '{W}', ['draw', 'esper-sentinel']));
+  sentinelPlayer.library.push(realCard('First Sentinel Draw', 'Instant', '{W}', []));
+  sentinelPlayer.library.push(realCard('Second Sentinel Draw', 'Instant', '{W}', []));
+  const gameState = new GameState([caster, sentinelPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => sentinelPlayer }, { type: 'cast_draw', card: first }, first);
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => sentinelPlayer }, { type: 'cast_draw', card: second }, second);
+  const esperWindows = gameState.stackManager.history.filter((object) => !object.isResponse && object.label() === 'Esper Sentinel trigger');
+  return esperWindows.length === 1
+    && sentinelPlayer.cardsDrawn === 1
+    && sentinelPlayer.hand.some((card) => card.name === 'First Sentinel Draw')
+    && !sentinelPlayer.hand.some((card) => card.name === 'Second Sentinel Draw')
+    && sentinelPlayer.metrics.esperSentinelDraws === 1
+    && sentinelPlayer.metrics.interactionWindowsOpened === 1;
+}
+
+function rhysticMysticEsperCoexistOnHighImpactNoncreature() {
+  const taxPlayer = realPlayer('Tax Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('The One Ring', ['draw', 'high-impact'], 4);
+  taxPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  taxPlayer.addPermanent(realCard('Mystic Remora', 'Enchantment', '{U}', ['draw', 'high-impact']));
+  taxPlayer.addPermanent(realCard('Esper Sentinel', 'Artifact Creature', '{W}', ['draw', 'esper-sentinel']));
+  taxPlayer.library.push(realCard('Rhystic Draw', 'Instant', '{U}', []));
+  taxPlayer.library.push(realCard('Mystic Draw', 'Instant', '{U}', []));
+  taxPlayer.library.push(realCard('Esper Draw', 'Instant', '{W}', []));
+  const gameState = new GameState([caster, taxPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => taxPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  const spellWindow = originalHistory(gameState, 'The One Ring');
+  const rhysticWindow = originalHistory(gameState, 'Rhystic Study trigger');
+  const mysticWindow = originalHistory(gameState, 'Mystic Remora trigger');
+  const esperWindow = originalHistory(gameState, 'Esper Sentinel trigger');
+  const originalWindows = gameState.stackManager.history.filter((object) => !object.isResponse);
+  return spellWindow
+    && rhysticWindow
+    && mysticWindow
+    && esperWindow
+    && originalWindows.length === 4
+    && gameState.stackManager.history.filter((object) => object.isResponse).length === 0
+    && caster.metrics.interactionWindowsOpened === 1
+    && taxPlayer.metrics.interactionWindowsOpened === 3
+    && taxPlayer.metrics.rhysticStudyDraws === 1
+    && taxPlayer.metrics.mysticRemoraDraws === 1
+    && taxPlayer.metrics.esperSentinelDraws === 1
+    && taxPlayer.cardsDrawn === 3
+    && rhysticWindow.priorityResult.reason === 'all_players_passed'
+    && mysticWindow.priorityResult.reason === 'all_players_passed'
+    && esperWindow.priorityResult.reason === 'all_players_passed';
+}
+
 function lowImpactCastDoesNotOpenRhysticWindow() {
   const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
   const caster = realPlayer('Caster');
@@ -1264,7 +1434,9 @@ function reportGeneratorIncludesTaxDrawMetrics() {
       rhysticStudyTriggers: 1,
       rhysticStudyDraws: 1,
       mysticRemoraTriggers: 1,
-      mysticRemoraDraws: 1
+      mysticRemoraDraws: 1,
+      esperSentinelTriggers: 1,
+      esperSentinelDraws: 1
     }),
     reportPlayer('Caster Deck', false)
   ]);
@@ -1273,14 +1445,19 @@ function reportGeneratorIncludesTaxDrawMetrics() {
   const text = reporter.toText(report);
   return report.interactionStackSummary.rhysticStudyDraws === 1
     && report.interactionStackSummary.mysticRemoraDraws === 1
+    && report.interactionStackSummary.esperSentinelDraws === 1
     && taxDeck.rhysticStudyTriggers === 1
     && taxDeck.rhysticStudyDraws === 1
     && taxDeck.mysticRemoraTriggers === 1
     && taxDeck.mysticRemoraDraws === 1
+    && taxDeck.esperSentinelTriggers === 1
+    && taxDeck.esperSentinelDraws === 1
     && text.includes('Rhystic-style draws: 1')
     && text.includes('Mystic-style draws: 1')
+    && text.includes('Esper-style draws: 1')
     && text.includes('Rhystic-style triggers/draws: 1 / 1')
-    && text.includes('Mystic-style triggers/draws: 1 / 1');
+    && text.includes('Mystic-style triggers/draws: 1 / 1')
+    && text.includes('Esper-style triggers/draws: 1 / 1');
 }
 
 function reportGeneratorHandlesNoInteractionMetrics() {
@@ -1296,7 +1473,8 @@ function reportGeneratorHandlesNoInteractionMetrics() {
     && text.includes('Interaction / Stack Summary:')
     && text.includes('Windows opened: 0')
     && text.includes('Rhystic-style draws: 0')
-    && text.includes('Mystic-style draws: 0');
+    && text.includes('Mystic-style draws: 0')
+    && text.includes('Esper-style draws: 0');
 }
 
 function fixturePlayer(name, profile = {}) {

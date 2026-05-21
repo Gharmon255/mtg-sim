@@ -82,7 +82,7 @@ Protection timing is also heuristic. For board wipes and other protected windows
 
 `stackObjectsProcessed` counts stack-like objects moved through `resolvePending`, including original objects and response objects. `stackObjectsResolved` means the object was valid and not stopped.
 
-Simulation reports now surface a compact Interaction / Stack Summary. `interactionWindowsOpened` counts opened windows, not guaranteed resolved effects. `stackObjectsProcessed` may include stopped, invalid, original, and response objects. `stackObjectsResolved` counts valid objects that were not stopped. The report's priority response count is currently derived from existing stack/window totals when no explicit priority-response metric is present, so it is a visibility signal rather than a full stack audit log. Rhystic Study-style and Mystic Remora-style draw counts are heuristic draw benefits, not exact tax/payment-rule outcomes.
+Simulation reports now surface a compact Interaction / Stack Summary. `interactionWindowsOpened` counts opened windows, not guaranteed resolved effects. `stackObjectsProcessed` may include stopped, invalid, original, and response objects. `stackObjectsResolved` counts valid objects that were not stopped. The report's priority response count is currently derived from existing stack/window totals when no explicit priority-response metric is present, so it is a visibility signal rather than a full stack audit log. Rhystic Study-style, Mystic Remora-style, and Esper Sentinel-style draw counts are heuristic draw benefits, not exact tax/payment-rule outcomes.
 
 ## Current Flow
 
@@ -114,7 +114,7 @@ Production simulation opens explicit windows mainly for:
 - combat/lethal attacks
 - combo attempts
 - selected triggered abilities, currently Smothering Tithe-style draw-tax treasure triggers
-- selected opponent-cast triggered abilities, currently Rhystic Study-style and Mystic Remora-style draw triggers
+- selected opponent-cast triggered abilities, currently Rhystic Study-style, Mystic Remora-style, and Esper Sentinel-style draw triggers
 - selected activated abilities, currently high-impact Monolith untap/combo-engine activations
 
 ## Activated / Triggered Wiring v1
@@ -135,7 +135,7 @@ This is intentional Step 5 narrow wiring. Not every draw-tax trigger opens a sta
 
 ## Opponent-Cast Triggered Wiring v1
 
-Steps 6 and 7 add two narrow opponent-cast triggered paths:
+Steps 6 through 8 add narrow opponent-cast triggered paths:
 
 - `TurnEngine.castAction` notifies `TriggeredAbilityEngine.afterOpponentCast` after a spell has successfully resolved through the simulator's cast flow.
 - `TriggeredAbilityEngine` currently looks only for `Rhystic Study` controlled by an opponent of the casting player.
@@ -150,14 +150,18 @@ Steps 6 and 7 add two narrow opponent-cast triggered paths:
 - `TriggeredAbilityEngine` also looks for `Mystic Remora` or a Mystic Remora-style tag-gated equivalent controlled by an opponent of the casting player.
 - Mystic Remora-style windows open for opponent noncreature spells. Current noncreature classification treats explicit creature type lines or `creature` tags as creature casts; known noncreature type lines are accepted; missing type data is conservative unless action/tag metadata clearly says noncreature.
 - If no one stops the Mystic Remora-style trigger, the controller may draw one card as the current heuristic benefit. If stopped, that draw is skipped.
-- If a player controls both Rhystic Study-style and Mystic Remora-style permanents, a high-impact noncreature spell can create one spell window plus one trigger window for each qualifying permanent. This is expected and should not double-count beyond one window per source trigger.
+- `TriggeredAbilityEngine` also looks for `Esper Sentinel` or an Esper Sentinel-style tag-gated equivalent controlled by an opponent of the casting player.
+- Esper Sentinel-style windows open for the first opponent noncreature spell that a caster casts during the current simulator turn key. The gate is stored per Esper permanent and per casting player so a second noncreature spell from the same caster in that turn does not open another Esper-style trigger.
+- Esper Sentinel-style noncreature classification uses the same conservative helper as Mystic Remora-style triggers. Missing or ambiguous type data does not open a window unless action/tag metadata clearly says noncreature.
+- If no one stops the Esper Sentinel-style trigger, the controller may draw one card as the current heuristic benefit. If stopped, that draw is skipped.
+- If a player controls Rhystic Study-style, Mystic Remora-style, and Esper Sentinel-style permanents, a high-impact noncreature spell can create one spell window plus one trigger window for each qualifying permanent. This is expected and should not double-count beyond one window per source trigger.
 - Low-mana-value noncreature spells may open Mystic Remora-style windows even when the same cast does not open a Rhystic Study-style window, because Rhystic's current path is impact-gated while Mystic's path is noncreature-gated.
 - Ambiguous casts with no type line and no clear action/tag metadata do not open Mystic Remora-style windows. This conservative fallback avoids treating unknown card data as a noncreature spell.
 - Commander casts are not fully wired into opponent-cast triggered windows yet because `tryCastCommander` does not currently use the same hook. Future work can route commander casts through `afterOpponentCast` once the simulator has a safe commander-cast event contract.
 
-This does not implement exact Rhystic Study or Mystic Remora tax payment rules yet. Opponents do not currently choose whether to pay a tax for these paths; the simulator only models the interaction-window opportunity around the heuristic draw trigger. Mystic Remora cumulative upkeep is also out of scope for this path. Low-impact casts currently do not open an extra Rhystic stack window, and not every Esper Sentinel / draw-tax-style trigger is wired. Future work should broaden this one production path at a time.
+This does not implement exact Rhystic Study, Mystic Remora, or Esper Sentinel tax payment rules yet. Opponents do not currently choose whether to pay a tax for these paths, and Esper Sentinel does not use exact power-based payment logic. The simulator only models the interaction-window opportunity around the heuristic draw trigger. Mystic Remora cumulative upkeep is also out of scope for this path. Low-impact casts currently do not open an extra Rhystic stack window, and not every draw-tax-style trigger is wired. Future work should broaden this one production path at a time.
 
-This does not mean every triggered or activated ability uses stack timing. Smothering Tithe/Rhystic/Mystic-style triggers may resolve without a stack window when no interaction engine/context is present or when the current narrow gating does not consider the trigger interaction-relevant. Likewise, some Grim Monolith / Mana Vault-style upkeep untap/payment paths may resolve without an interaction window by heuristic design. Steps 5 through 7 only prove selected production routes can use the same `InteractionWindow -> StackObject -> PriorityManager -> optional one-deep counterplay -> history` path.
+This does not mean every triggered or activated ability uses stack timing. Smothering Tithe/Rhystic/Mystic/Esper-style triggers may resolve without a stack window when no interaction engine/context is present or when the current narrow gating does not consider the trigger interaction-relevant. Likewise, some Grim Monolith / Mana Vault-style upkeep untap/payment paths may resolve without an interaction window by heuristic design. Steps 5 through 8 only prove selected production routes can use the same `InteractionWindow -> StackObject -> PriorityManager -> optional one-deep counterplay -> history` path.
 
 ## Remaining Limits
 
