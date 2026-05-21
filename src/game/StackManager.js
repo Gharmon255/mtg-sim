@@ -45,7 +45,7 @@ class StackManager {
     object.markResolved(result);
     this.pop();
     this.resolvedObjects.push(object);
-    recordResolvedMetric(object);
+    recordStackMetric(object);
     if (object.stopped) {
       recordDebug(gameState, `Stack object stopped: ${object.id} ${object.label()} by ${result.by || 'interaction'}.`);
     } else {
@@ -76,10 +76,13 @@ function resolveObject(gameState, interactionEngine, object) {
   return interactionEngine.resolveStackObject(gameState, object) || { stopped: false };
 }
 
-function recordResolvedMetric(object) {
+function recordStackMetric(object) {
   const player = object && object.sourcePlayer;
   if (!player || !player.metrics) return;
-  player.metrics.stackObjectsResolved = (player.metrics.stackObjectsResolved || 0) + 1;
+  player.metrics.stackObjectsProcessed = (player.metrics.stackObjectsProcessed || 0) + 1;
+  if (object.isValid && object.isValid() && !object.stopped) {
+    player.metrics.stackObjectsResolved = (player.metrics.stackObjectsResolved || 0) + 1;
+  }
 }
 
 module.exports = { StackManager };

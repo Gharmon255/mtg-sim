@@ -85,9 +85,9 @@ class InteractionEngine {
     const prepared = this.preparePriorityWindow(gameState, actingPlayer, window);
     if (!prepared.ok) return prepared.result;
     const normalizedAttempt = prepared.attempt;
-    const opponents = gameState.opponentsOf(actingPlayer)
-      .filter((opponent) => !opponent.eliminated)
-      .sort((a, b) => interactionReadiness(b) - interactionReadiness(a));
+    const opponents = this.priorityManager.getResponderOrder
+      ? this.priorityManager.getResponderOrder(gameState, actingPlayer)
+      : gameState.opponentsOf(actingPlayer).filter((opponent) => !opponent.eliminated);
     if (gameState.recordDebug) {
       const names = opponents.length ? opponents.map((opponent) => opponent.name).join(', ') : 'none';
       gameState.recordDebug(`Interaction window responders: ${names}.`);
@@ -108,11 +108,6 @@ class InteractionEngine {
     gameState.recordDebug && gameState.recordDebug(`Interaction window closes: ${window.label} resolves.`);
     return { stopped: false };
   }
-}
-
-function interactionReadiness(player) {
-  const profile = player.strategyProfile || {};
-  return (profile.controlPriority || 0) + (profile.counterspellPriority || 0) + (profile.removalPriority || 0) + player.availableMana * 6 + player.hand.length;
 }
 
 function chooseAnswer(player, attempt, roleResolver) {

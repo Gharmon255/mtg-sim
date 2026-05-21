@@ -206,6 +206,10 @@ Stack Objects v1 is a thin simulator wrapper around Interaction Windows v1. `Sta
 
 Priority Passes v1 is not full MTG priority. The source/controller is represented first, then opponents get one deterministic response opportunity in current table order. There are no nested responses, no repeated priority loops, and no true multi-object LIFO stack resolution yet. Step 4 is planned as Nested Responses / Counterplay v1.
 
+The priority responder order is intentionally `source/controller -> opponents in current table order`. The legacy `skipStackObject` escape hatch bypasses StackObject/PriorityManager creation for narrow compatibility tests or direct resolver calls, but it still uses the same table-order responder helper. New production simulation paths should prefer the normal stack path. Priority and stack result objects may include a `reason` such as `all_players_passed`, `invalid_stack_object`, `invalid_window`, or `response_payment_failed`; these are diagnostic labels for debug output and future counterplay work, not full rules outcomes.
+
+The `stackObjectsProcessed` metric counts stack-like objects that moved through `resolvePending`, whether they resolved, were stopped, or were invalid. The older `stackObjectsResolved` metric now means the object was valid and not stopped.
+
 ## Card Roles And Sequencing
 
 Broad tags still matter, but the simulator also has exact card role metadata for important Commander staples.
@@ -487,7 +491,7 @@ Run interaction-window checks:
 npm run test:interaction
 ```
 
-These deterministic tests cover high-impact spell counters, removal against combo engines, protection defending an important play, lethal combat windows, unanswered lethal combat resolution, existing combo-attempt stopping, StackObject creation and malformed-window guards, StackManager push/pop behavior, Priority Passes v1 order/pass/response metadata, single-object stack resolution, TurnEngine/CombatEngine integration paths, and stack history.
+These deterministic tests cover high-impact spell counters, removal against combo engines, protection defending an important play, board wipe priority history, combo attempt priority history, lethal combat windows, unanswered lethal combat resolution, existing combo-attempt stopping, StackObject creation and malformed-window guards, StackManager push/pop behavior, Priority Passes v1 order/pass/response metadata, single-object stack resolution, TurnEngine/CombatEngine integration paths, and stack history.
 
 ## Debug Simulation
 

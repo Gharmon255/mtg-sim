@@ -1,20 +1,29 @@
 class PriorityManager {
+  getPriorityOrder(gameState, sourcePlayer) {
+    return priorityOrder(gameState, sourcePlayer);
+  }
+
+  getResponderOrder(gameState, sourcePlayer) {
+    return this.getPriorityOrder(gameState, sourcePlayer)
+      .filter((player) => !sourcePlayer || player.id !== sourcePlayer.id);
+  }
+
   runPriority(gameState, stackObject, interactionEngine) {
     const priority = initializePriority(stackObject);
-    stackObject.priority = priority;
+    if (stackObject) stackObject.priority = priority;
 
     if (!stackObject || typeof stackObject.isValid !== 'function' || !stackObject.isValid()) {
-      priority.result = { stopped: false, reason: 'invalid_stack_object' };
+      const result = { stopped: false, reason: 'invalid_stack_object' };
       recordDebug(gameState, 'Priority pass skipped: invalid stack object.');
-      return priority.result;
+      return completePriority(stackObject, priority, result, 'skipped');
     }
 
     const sourcePlayer = stackObject.sourcePlayer;
     const prepared = interactionEngine.preparePriorityWindow(gameState, sourcePlayer, stackObject.window);
     if (!prepared.ok) {
-      priority.result = prepared.result;
+      const result = prepared.result || { stopped: false, reason: 'invalid_window' };
       recordDebug(gameState, `Priority pass skipped for ${stackObject.label()}: ${prepared.result.reason || 'invalid window'}.`);
-      return priority.result;
+      return completePriority(stackObject, priority, result, 'skipped');
     }
 
     const attempt = prepared.attempt;
@@ -25,7 +34,8 @@ class PriorityManager {
     };
 
     recordDebug(gameState, `Priority pass begins: ${stackObject.id} ${stackObject.label()}.`);
-    const order = priorityOrder(gameState, sourcePlayer);
+    priority.ordering = 'source-then-table-order';
+    const order = this.getPriorityOrder(gameState, sourcePlayer);
     priority.order = order.map((player) => player.name);
     recordDebug(gameState, `Priority order: ${priority.order.join(' -> ') || 'none'}.`);
 
@@ -65,18 +75,15 @@ class PriorityManager {
         continue;
       }
       if (result.stopped) {
-        priority.result = result;
         recordDebug(gameState, `Priority pass complete: ${stackObject.label()} has a stopping response.`);
-        stackObject.priorityResult = result;
-        return result;
+        return completePriority(stackObject, priority, result, 'stopped');
       }
     }
 
-    priority.result = { stopped: false };
-    stackObject.priorityResult = priority.result;
+    const result = { stopped: false, reason: 'all_players_passed' };
     recordDebug(gameState, `Interaction window closes: ${stackObject.label()} resolves.`);
     recordDebug(gameState, `Priority pass complete: all responders passed for ${stackObject.label()}.`);
-    return priority.result;
+    return completePriority(stackObject, priority, result, 'passed');
   }
 }
 
@@ -88,8 +95,16 @@ function initializePriority(stackObject) {
     passes: [],
     responses: [],
     result: null,
+    ordering: null,
     attempt: null
   };
+}
+
+function completePriority(stackObject, priority, result, status) {
+  priority.status = status || (result && result.stopped ? 'stopped' : 'passed');
+  priority.result = result || { stopped: false, reason: 'no_priority_result' };
+  if (stackObject) stackObject.priorityResult = priority.result;
+  return priority.result;
 }
 
 function priorityOrder(gameState, sourcePlayer) {
