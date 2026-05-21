@@ -92,6 +92,27 @@ class PriorityManager {
   }
 
   resolveOneDeepResponse(gameState, stackObject, sourcePlayer, responder, answer, originalAttempt, interactionEngine) {
+    if (isNestedResponseDepthLimit(stackObject)) {
+      const result = {
+        stopped: false,
+        reason: 'nested_response_depth_limit',
+        by: responder && responder.name,
+        card: answer && answer.name
+      };
+      if (stackObject && stackObject.priority) {
+        stackObject.priority.depthLimit = {
+          reason: result.reason,
+          attemptedBy: result.by,
+          card: result.card
+        };
+      }
+      recordDebug(gameState, `Nested response refused: nested_response_depth_limit for ${stackObject ? stackObject.label() : 'unknown object'}.`);
+      return {
+        responseObject: null,
+        counterplay: { stoppedResponse: false, reason: result.reason },
+        result
+      };
+    }
     const responseObject = pushResponseStackObject(gameState, stackObject, responder, answer, originalAttempt);
     const committed = interactionEngine.commitPriorityResponse(gameState, responder, answer, originalAttempt);
     if (!committed.ok) {
@@ -167,6 +188,11 @@ function completePriority(stackObject, priority, result, status) {
   priority.result = result || { stopped: false, reason: 'no_priority_result' };
   if (stackObject) stackObject.priorityResult = priority.result;
   return priority.result;
+}
+
+function isNestedResponseDepthLimit(parentObject) {
+  if (!parentObject) return true;
+  return Boolean(parentObject.isResponse || Number(parentObject.responseDepth || 0) >= 1);
 }
 
 function pushResponseStackObject(gameState, parentObject, responder, answer, originalAttempt) {

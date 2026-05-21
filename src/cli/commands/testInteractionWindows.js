@@ -21,6 +21,8 @@ function testInteractionWindowsCommand() {
     ['No counter-back leaves original stopped', noCounterBackLeavesOriginalStopped],
     ['Nested response history resolves LIFO', nestedResponseHistoryResolvesLifo],
     ['Nested response depth is capped at one response object', nestedResponseDepthIsCapped],
+    ['Nested response depth guard refuses response-to-response', nestedResponseDepthGuardRefusesResponseToResponse],
+    ['Nested response metrics are not double-counted', nestedResponseMetricsAreNotDoubleCounted],
     ['Legacy skipStackObject path uses same table-order responders', skipStackObjectUsesTableOrderResponders],
     ['Counterspell-like interaction stops high-impact spell', counterStopsHighImpactSpell],
     ['Removal-like interaction stops combo creature or engine', removalStopsComboEngine],
@@ -294,6 +296,79 @@ function nestedResponseDepthIsCapped() {
     && control.hand.length === 1
     && ['Counterspell', 'Force of Will'].includes(control.hand[0].name)
     && gameState.stackManager.history.every((object) => object.responseDepth <= 1);
+}
+
+function nestedResponseDepthGuardRefusesResponseToResponse() {
+  const source = fixturePlayer('Source Player', { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  const control = fixturePlayer('Control Opponent', { primaryArchetype: 'control', controlPriority: 95, estimatedBracket: 4 });
+  source.hand.push(spell('Swan Song', ['counterspell'], 1));
+  control.hand.push(spell('Counterspell', ['counterspell'], 2));
+  control.hand.push(spell('Force of Will', ['counterspell', 'free-spell'], 5));
+  const gameState = new GameState([source, control], { debug: true });
+  const engine = new InteractionEngine();
+  const result = engine.attemptToStop(gameState, source, {
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: ACTION_TYPES.HIGH_IMPACT,
+    label: 'Rhystic Study',
+    sourceCard: spell('Rhystic Study', ['draw', 'high-impact'], 3),
+    impactScore: 80
+  });
+  const original = originalHistory(gameState);
+  const response = responseHistory(gameState);
+  const historyLengthBeforeRefusedThird = gameState.stackManager.history.length;
+  const sourceWindowsBefore = source.metrics.interactionWindowsOpened || 0;
+  const controlWindowsBefore = control.metrics.interactionWindowsOpened || 0;
+  const refused = engine.priorityManager.resolveOneDeepResponse(
+    gameState,
+    response,
+    response.sourcePlayer,
+    control,
+    control.hand[0],
+    response.window.toAttempt(),
+    engine
+  );
+  return !result.stopped
+    && original
+    && response
+    && response.isResponse
+    && response.respondsTo === original.id
+    && refused.result.reason === 'nested_response_depth_limit'
+    && refused.responseObject === null
+    && gameState.stackManager.history.length === historyLengthBeforeRefusedThird
+    && gameState.stackManager.history.length === 2
+    && gameState.stackManager.history.filter((object) => object.isResponse).length === 1
+    && (source.metrics.interactionWindowsOpened || 0) === sourceWindowsBefore
+    && (control.metrics.interactionWindowsOpened || 0) === controlWindowsBefore
+    && debugIncludes(gameState, 'nested_response_depth_limit');
+}
+
+function nestedResponseMetricsAreNotDoubleCounted() {
+  const source = fixturePlayer('Source Player', { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  const control = fixturePlayer('Control Opponent', { primaryArchetype: 'control', controlPriority: 95, estimatedBracket: 4 });
+  source.hand.push(spell('Swan Song', ['counterspell'], 1));
+  control.hand.push(spell('Counterspell', ['counterspell'], 2));
+  const gameState = new GameState([source, control], { debug: true });
+  const result = new InteractionEngine().attemptToStop(gameState, source, {
+    windowType: WINDOW_TYPES.SPELL_CAST,
+    actionType: ACTION_TYPES.HIGH_IMPACT,
+    label: 'Rhystic Study',
+    sourceCard: spell('Rhystic Study', ['draw', 'high-impact'], 3),
+    impactScore: 80
+  });
+  const original = originalHistory(gameState);
+  const response = responseHistory(gameState);
+  return !result.stopped
+    && original
+    && response
+    && source.metrics.interactionWindowsOpened === 1
+    && !control.metrics.interactionWindowsOpened
+    && source.metrics.stackObjectsProcessed === 1
+    && source.metrics.stackObjectsResolved === 1
+    && control.metrics.stackObjectsProcessed === 1
+    && !control.metrics.stackObjectsResolved
+    && source.metrics.counterspellsUsed === 1
+    && control.metrics.counterspellsUsed === 1
+    && gameState.stackManager.history.length === 2;
 }
 
 function skipStackObjectUsesTableOrderResponders() {

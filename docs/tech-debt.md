@@ -4,9 +4,9 @@ Known issues and cleanup targets for future agents.
 
 ## Interaction / Stack / Priority
 
-- Protection path may still consume/report counter usage oddly in some protected-window cases.
+- Protection/counterplay timing is heuristic; board wipe defense may appear as counterplay against a response object rather than exact MTG timing.
 - Table order is deterministic but not skill/readiness order; this is intentional for Priority Passes v1 but may need richer policy later.
-- `stackObjectsProcessed` and `stackObjectsResolved` may need future `ReportGenerator` wiring.
+- `stackObjectsProcessed` and `stackObjectsResolved` are internal/player metrics and still need future `ReportGenerator` surfacing if users need them in reports.
 - Some direct `StackManager` tests exist for guard behavior only; behavior assertions should prefer production `InteractionEngine.attemptToStop` paths.
 - Activated and triggered production windows are limited even though the model supports their window types.
 - Board wipe and combo priority integration tests exist; they should continue expanding with realistic game-state fixtures.

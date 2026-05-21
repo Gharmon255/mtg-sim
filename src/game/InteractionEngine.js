@@ -111,8 +111,7 @@ class InteractionEngine {
       canBeRemoved: false,
       canBeProtected: originalAttempt.canBeProtected,
       reason: `${responseCard.name} would stop ${originalAttempt.label}`,
-      interactionWindow: responseObject.window,
-      nestedResponse: true
+      interactionWindow: responseObject.window
     };
     gameState.recordDebug && gameState.recordDebug(`Counterplay opportunity: ${actingPlayer.name} may answer ${responder.name}'s ${responseCard.name}.`);
     const counterplay = chooseAnswer(actingPlayer, responseAttempt, this.roleResolver);

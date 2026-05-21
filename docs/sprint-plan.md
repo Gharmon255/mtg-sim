@@ -12,6 +12,7 @@ This document tracks the interaction/stack/priority sprint and the next safe upg
 - Step 3.5: Harden Priority Passes v1 - Done
 - Step 3.6: Agent harness docs - Done
 - Step 4: Nested Responses / Counterplay v1 - Implemented
+- Step 4.5: Harden Nested Responses / Counterplay v1 - Done
 
 ## Step 4 Status
 
@@ -35,7 +36,7 @@ Out of scope for Step 4:
 
 ## Next Target
 
-Harden Nested Responses / Counterplay v1 after more real-game fixture review, then expand production wiring for activated and triggered windows.
+Expand production wiring for activated and triggered windows after more real-game fixture review.
 
 ## Future Steps
 

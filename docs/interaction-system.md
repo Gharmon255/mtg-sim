@@ -72,6 +72,16 @@ Supported examples:
 
 Depth is intentionally capped at one response object. If B has another counterspell after A counters back, this v1 layer does not create a third object.
 
+Step 4.5 adds a hard depth guard: if code tries to push a response object onto an existing response object, or onto any object with `responseDepth >= 1`, the push is refused with `nested_response_depth_limit`. The guard records debug output, does not consume the attempted answer, does not open another interaction window, and leaves stack history at the original object plus the allowed one response object.
+
+Protection timing is also heuristic. For board wipes and other protected windows, the current model may represent defense as counterplay against a response object rather than the older immediate "protect before counter" path. This is a simulator abstraction for keeping important plans alive; it is not exact Magic timing.
+
+## Metrics
+
+`interactionWindowsOpened` counts real production windows opened for original important actions. Nested response objects are stack objects, but they do not increment `interactionWindowsOpened`.
+
+`stackObjectsProcessed` counts stack-like objects moved through `resolvePending`, including original objects and response objects. `stackObjectsResolved` means the object was valid and not stopped. These are currently internal/player metrics and are not broadly surfaced in `ReportGenerator` output yet.
+
 ## Current Flow
 
 ```text

@@ -7,7 +7,8 @@ This simulator is improving steadily, but it is not a full Magic rules engine.
 - Not a complete Oracle text interpreter.
 - Not full MTG priority.
 - Stack Objects are not the full MTG stack.
-- No full LIFO nested response system yet.
+- Nested Responses / Counterplay v1 is capped at one response object.
+- No repeated priority loops or 3+ deep stack/counter-war support yet.
 - Triggered and activated window types exist, but production simulation does not broadly open them everywhere yet.
 - Replacement effects, layers, state-based actions, exact timing permissions, and many continuous effects are not fully modeled.
 
@@ -35,4 +36,3 @@ This simulator is improving steadily, but it is not a full Magic rules engine.
 - Confidence depends on hydrated card data and tags.
 - Missing card data can produce false-low or noisy estimates.
 - Reports should be treated as simulation signals, not authoritative gameplay truth.
-
