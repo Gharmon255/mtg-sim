@@ -12,7 +12,8 @@ Known issues and cleanup targets for future agents.
 - Some trigger and upkeep paths intentionally resolve without a stack window when no interaction engine/context is present or when the current gating does not consider the ability interaction-relevant.
 - Rhystic Study and Mystic Remora-style opponent-cast triggers do not model exact tax payment rules, and Mystic Remora cumulative upkeep is not modeled by this trigger path.
 - Esper Sentinel-style triggers are not wired yet.
-- Commander casts are not wired into Rhystic Study-style opponent-cast trigger windows yet because `tryCastCommander` does not currently call the successful-cast hook.
+- Commander casts are not wired into Rhystic Study / Mystic Remora-style opponent-cast trigger windows yet because `tryCastCommander` does not currently call the successful-cast hook.
+- Low-mana-value Mystic-vs-Rhystic gating and ambiguous no-type conservative gating have regression coverage; richer real-card fixtures should keep expanding this area.
 - Multiplayer Rhystic Study-style triggers have sequential multi-controller coverage, but broader multiplayer trigger policy still needs more real-game fixtures.
 - ReportGenerator still does not surface stack/priority/Rhystic/Mystic trigger metrics in a user-facing way.
 - Board wipe and combo priority integration tests exist; they should continue expanding with realistic game-state fixtures.

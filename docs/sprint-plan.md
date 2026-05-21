@@ -18,6 +18,7 @@ This document tracks the interaction/stack/priority sprint and the next safe upg
 - Step 6: Opponent-Cast Triggered Interaction Window v1 - Implemented
 - Step 6.5: Harden Rhystic-style Opponent-Cast Triggered Windows - Done
 - Step 7: Mystic Remora-style Opponent Noncreature Cast Triggered Window - Implemented
+- Step 7.5: Harden Mystic Remora-style Triggered Windows - Done
 
 ## Step 4 Status
 
@@ -54,6 +55,10 @@ Rhystic-style opponent-cast trigger behavior is hardened with regression coverag
 ## Step 7 Status
 
 Mystic Remora-style opponent-cast trigger behavior is implemented through the existing `TurnEngine.castAction` -> `TriggeredAbilityEngine.afterOpponentCast` hook. The path opens triggered windows for opponent noncreature spell casts, draws one card if the window resolves, skips the draw if stopped, and keeps exact tax payment plus cumulative upkeep out of scope.
+
+## Step 7.5 Status
+
+Mystic Remora-style trigger behavior is hardened with coexistence coverage for Rhystic + Mystic sources, conservative no-type classification, and low-mana-value noncreature casts that trigger Mystic without triggering Rhystic. Commander casts remain a documented future hook.
 
 ## Next Target
 

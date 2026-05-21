@@ -51,6 +51,9 @@ function testInteractionWindowsCommand() {
     ['Creature cast does not open Mystic Remora-style trigger', creatureCastDoesNotOpenMysticTrigger],
     ['No Mystic permanent means no Mystic Remora-style trigger', noMysticMeansNoMysticTrigger],
     ['Mystic Remora-style trigger coexists with high-impact spell window', mysticTriggerCoexistsWithHighImpactSpellWindow],
+    ['Rhystic and Mystic triggers coexist without double-counting windows', rhysticAndMysticCoexistOnHighImpactNoncreature],
+    ['Ambiguous no-type cast does not open Mystic Remora-style trigger', ambiguousNoTypeCastDoesNotOpenMysticTrigger],
+    ['Low-MV noncreature triggers Mystic but not Rhystic', lowMvNonCreatureTriggersMysticNotRhystic],
     ['Low-impact opponent cast does not open Rhystic-style trigger window', lowImpactCastDoesNotOpenRhysticWindow],
     ['No Rhystic-style permanent means no opponent-cast trigger window', noRhysticMeansNoOpponentCastTrigger],
     ['Unanswered lethal combat resolves without false interaction metrics', unansweredLethalCombatResolves]
@@ -1076,6 +1079,81 @@ function mysticTriggerCoexistsWithHighImpactSpellWindow() {
     && remoraPlayer.cardsDrawn === 1
     && caster.metrics.interactionWindowsOpened === 1
     && remoraPlayer.metrics.interactionWindowsOpened === 1;
+}
+
+function rhysticAndMysticCoexistOnHighImpactNoncreature() {
+  const taxPlayer = realPlayer('Tax Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('The One Ring', ['draw', 'high-impact'], 4);
+  taxPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  taxPlayer.addPermanent(realCard('Mystic Remora', 'Enchantment', '{U}', ['draw', 'high-impact']));
+  taxPlayer.library.push(realCard('Rhystic Draw', 'Instant', '{U}', []));
+  taxPlayer.library.push(realCard('Mystic Draw', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, taxPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => taxPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  const spellWindow = originalHistory(gameState, 'The One Ring');
+  const rhysticWindow = originalHistory(gameState, 'Rhystic Study trigger');
+  const mysticWindow = originalHistory(gameState, 'Mystic Remora trigger');
+  const originalWindows = gameState.stackManager.history.filter((object) => !object.isResponse);
+  return spellWindow
+    && rhysticWindow
+    && mysticWindow
+    && originalWindows.length === 3
+    && gameState.stackManager.history.filter((object) => object.isResponse).length === 0
+    && caster.metrics.interactionWindowsOpened === 1
+    && taxPlayer.metrics.interactionWindowsOpened === 2
+    && taxPlayer.metrics.rhysticStudyDraws === 1
+    && taxPlayer.metrics.mysticRemoraDraws === 1
+    && taxPlayer.cardsDrawn === 2
+    && rhysticWindow.priorityResult.reason === 'all_players_passed'
+    && mysticWindow.priorityResult.reason === 'all_players_passed';
+}
+
+function ambiguousNoTypeCastDoesNotOpenMysticTrigger() {
+  const remoraPlayer = realPlayer('Remora Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = {
+    name: 'Ambiguous Card',
+    tags: [],
+    manaValue: 1,
+    manaCost: '{1}',
+    oracleText: ''
+  };
+  remoraPlayer.addPermanent(realCard('Mystic Remora', 'Enchantment', '{U}', ['draw', 'high-impact']));
+  remoraPlayer.library.push(realCard('Should Stay Put', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, remoraPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => remoraPlayer }, { type: 'cast_unknown', card: castCard }, castCard);
+  return !originalHistory(gameState, 'Mystic Remora trigger')
+    && gameState.stackManager.history.length === 0
+    && remoraPlayer.cardsDrawn === 0
+    && !remoraPlayer.metrics.mysticRemoraDraws
+    && !remoraPlayer.metrics.interactionWindowsOpened;
+}
+
+function lowMvNonCreatureTriggersMysticNotRhystic() {
+  const taxPlayer = realPlayer('Tax Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('Ponder', ['draw'], 1);
+  taxPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  taxPlayer.addPermanent(realCard('Mystic Remora', 'Enchantment', '{U}', ['draw', 'high-impact']));
+  taxPlayer.library.push(realCard('Mystic Low MV Draw', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, taxPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => taxPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  const mysticWindow = originalHistory(gameState, 'Mystic Remora trigger');
+  return mysticWindow
+    && !originalHistory(gameState, 'Rhystic Study trigger')
+    && gameState.stackManager.history.length === 1
+    && taxPlayer.cardsDrawn === 1
+    && taxPlayer.metrics.mysticRemoraDraws === 1
+    && !taxPlayer.metrics.rhysticStudyDraws
+    && taxPlayer.metrics.interactionWindowsOpened === 1
+    && !caster.metrics.interactionWindowsOpened;
 }
 
 function lowImpactCastDoesNotOpenRhysticWindow() {

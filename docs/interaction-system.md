@@ -148,6 +148,10 @@ Steps 6 and 7 add two narrow opponent-cast triggered paths:
 - `TriggeredAbilityEngine` also looks for `Mystic Remora` or a Mystic Remora-style tag-gated equivalent controlled by an opponent of the casting player.
 - Mystic Remora-style windows open for opponent noncreature spells. Current noncreature classification treats explicit creature type lines or `creature` tags as creature casts; known noncreature type lines are accepted; missing type data is conservative unless action/tag metadata clearly says noncreature.
 - If no one stops the Mystic Remora-style trigger, the controller may draw one card as the current heuristic benefit. If stopped, that draw is skipped.
+- If a player controls both Rhystic Study-style and Mystic Remora-style permanents, a high-impact noncreature spell can create one spell window plus one trigger window for each qualifying permanent. This is expected and should not double-count beyond one window per source trigger.
+- Low-mana-value noncreature spells may open Mystic Remora-style windows even when the same cast does not open a Rhystic Study-style window, because Rhystic's current path is impact-gated while Mystic's path is noncreature-gated.
+- Ambiguous casts with no type line and no clear action/tag metadata do not open Mystic Remora-style windows. This conservative fallback avoids treating unknown card data as a noncreature spell.
+- Commander casts are not fully wired into opponent-cast triggered windows yet because `tryCastCommander` does not currently use the same hook. Future work can route commander casts through `afterOpponentCast` once the simulator has a safe commander-cast event contract.
 
 This does not implement exact Rhystic Study or Mystic Remora tax payment rules yet. Opponents do not currently choose whether to pay a tax for these paths; the simulator only models the interaction-window opportunity around the heuristic draw trigger. Mystic Remora cumulative upkeep is also out of scope for this path. Low-impact casts currently do not open an extra Rhystic stack window, and not every Esper Sentinel / draw-tax-style trigger is wired. Future work should broaden this one production path at a time.
 
