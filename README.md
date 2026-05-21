@@ -192,7 +192,7 @@ The engine models a simplified Commander game:
 - Let opponents use Interaction Windows v1, a simplified counterplay layer for combo wins, high-impact spells, board wipes, and lethal attacks.
 - End when one player remains or the max turn limit is reached.
 
-It does not yet model the stack accurately, full priority loops, nested responses, replacement effects, every triggered ability, every timing restriction, every combat rule, or exact Oracle text. Rules fidelity is intentionally incremental: validation should become strict before simulation becomes exact.
+It now supports one-deep nested counterplay as a heuristic abstraction, but it does not yet model full MTG stack behavior, unlimited nesting, repeated priority loops, full comprehensive priority rules, replacement effects, every triggered ability, every timing restriction, every combat rule, or exact Oracle text. Rules fidelity is intentionally incremental: validation should become strict before simulation becomes exact.
 
 ## Strategy Profiles
 
@@ -216,7 +216,7 @@ Stack Objects v1 is a thin simulator wrapper around Interaction Windows v1. `Sta
 
 Priority Passes v1 and Nested Responses / Counterplay v1 are not full MTG priority. The source/controller is represented first, opponents get one deterministic response opportunity in current table order, and the original controller may answer that response once. There are no repeated priority loops, no 3+ deep counter wars, and no true full-stack LIFO rules engine yet.
 
-The priority responder order is intentionally `source/controller -> opponents in current table order`. The legacy `skipStackObject` escape hatch bypasses StackObject/PriorityManager creation for narrow compatibility tests or direct resolver calls, but it still uses the same table-order responder helper. New production simulation paths should prefer the normal stack path. Priority and stack result objects may include a `reason` such as `all_players_passed`, `invalid_stack_object`, `invalid_window`, or `response_payment_failed`; these are diagnostic labels for debug output and future counterplay work, not full rules outcomes.
+The priority responder order is intentionally `source/controller -> opponents in current table order`. The legacy `skipStackObject` escape hatch bypasses StackObject/PriorityManager creation for narrow compatibility tests or direct resolver calls, but it still uses the same table-order responder helper. New production simulation paths should prefer the normal stack path. Priority and stack result objects may include a `reason` such as `all_players_passed`, `invalid_stack_object`, `invalid_window`, `response_payment_failed`, or `nested_response_depth_limit`; these are diagnostic labels for debug output and future counterplay work, not full rules outcomes.
 
 The `stackObjectsProcessed` metric counts stack-like objects that moved through `resolvePending`, whether they resolved, were stopped, or were invalid. The older `stackObjectsResolved` metric now means the object was valid and not stopped.
 

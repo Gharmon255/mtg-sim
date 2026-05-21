@@ -20,7 +20,7 @@ One-deep nested response/counterplay is implemented without building a full MTG 
 
 Current scope:
 
-- One response to a response.
+- One response object atop the original object; no response-to-response.
 - Counterspell wars like A casts spell, B counters, A counters back.
 - Protection responding to removal or board wipes.
 - Debug history for parent/child response objects.
