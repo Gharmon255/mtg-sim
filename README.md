@@ -4,6 +4,16 @@ A backend-first JavaScript MVP for simulating simplified Magic: The Gathering Co
 
 This project is intentionally not a full MTG rules engine yet. The design separates deck parsing, validation, card data, card behavior, game state, turn flow, combat, simulation aggregation, and reports so exact card logic can be added gradually.
 
+## Project Docs
+
+- [Agent Guide](AGENTS.md)
+- [Architecture](ARCHITECTURE.md)
+- [Sprint Plan](docs/sprint-plan.md)
+- [Testing Guide](docs/testing-guide.md)
+- [Simulator Limits](docs/simulator-limits.md)
+- [Interaction System](docs/interaction-system.md)
+- [Tech Debt](docs/tech-debt.md)
+
 ## Install
 
 ```bash
