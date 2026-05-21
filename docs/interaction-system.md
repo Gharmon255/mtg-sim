@@ -23,7 +23,7 @@ Current window types include:
 - combo attempt
 - board wipe
 
-Activated and triggered windows exist in the model. Production simulation now opens a narrow set of real triggered/activated paths, but it does not broadly open every ability yet.
+Activated and triggered windows exist in the model. Production simulation now opens a narrow set of real triggered/activated paths, but it does not broadly open every ability yet. If no interaction engine/context is present, these abilities may still resolve through the older direct heuristic path without stack history.
 
 ## Stack Objects v1
 
@@ -118,10 +118,10 @@ Production simulation opens explicit windows mainly for:
 
 Step 5 adds narrow production wiring for:
 
-- `TriggeredAbilityEngine` Smothering Tithe-style opponent draw triggers. If the trigger is stopped, the Treasure effect is skipped.
-- `AbilityResolver` high-impact Monolith untap activations when they look combo-relevant. If the activation is stopped, costs are not paid and the ability effect is skipped.
+- `TurnEngine` draw-step production into `TriggeredAbilityEngine` Smothering Tithe-style opponent draw triggers. If the trigger is stopped, the Treasure effect is skipped; if no one responds, the draw still happened and Treasures are created.
+- `UpkeepEngine` / `AbilityResolver` production into high-impact Monolith untap activations when they look combo-relevant. If the activation is stopped, costs are not paid and the ability effect is skipped.
 
-This does not mean every triggered or activated ability uses stack timing. It only proves the production route can use the same `InteractionWindow -> StackObject -> PriorityManager -> optional one-deep counterplay -> history` path.
+This does not mean every triggered or activated ability uses stack timing. Smothering Tithe/Rhystic-style triggers may resolve without a stack window when no interaction engine/context is present or when the current narrow gating does not consider the trigger interaction-relevant. Likewise, some Grim Monolith / Mana Vault-style upkeep untap/payment paths may resolve without an interaction window by heuristic design. Step 5 only proves selected production routes can use the same `InteractionWindow -> StackObject -> PriorityManager -> optional one-deep counterplay -> history` path.
 
 ## Remaining Limits
 

@@ -6,6 +6,7 @@ const { ACTION_TYPES, WINDOW_TYPES, InteractionWindow, createInteractionWindow }
 const { StackObject } = require('../../game/StackObject');
 const { StackManager } = require('../../game/StackManager');
 const { TurnEngine } = require('../../game/TurnEngine');
+const { PlayerState } = require('../../game/PlayerState');
 
 function testInteractionWindowsCommand() {
   const tests = [
@@ -37,6 +38,8 @@ function testInteractionWindowsCommand() {
     ['Stack history records stopped and resolved objects', stackHistoryRecordsOutcomes],
     ['Real CombatEngine path opens lethal combat interaction window', realCombatEngineOpensLethalWindow],
     ['Real TurnEngine path opens spell interaction window and stack history', realTurnEngineOpensSpellStackWindow],
+    ['Real TurnEngine draw path opens triggered ability interaction window', realTurnEngineDrawOpensTriggeredWindow],
+    ['Real TurnEngine upkeep path gates activated ability interaction window', realTurnEngineUpkeepGatesActivatedWindow],
     ['Unanswered lethal combat resolves without false interaction metrics', unansweredLethalCombatResolves]
   ];
 
@@ -737,6 +740,78 @@ function realTurnEngineOpensSpellStackWindow() {
     && debugIncludes(gameState, `Interaction window opens [${WINDOW_TYPES.SPELL_CAST}/${ACTION_TYPES.HIGH_IMPACT}]`);
 }
 
+function realTurnEngineDrawOpensTriggeredWindow() {
+  const tithePlayer = realPlayer('Tithe Player', { estimatedBracket: 3 });
+  const activePlayer = realPlayer('Drawing Player');
+  tithePlayer.addPermanent(realCard('Smothering Tithe', 'Enchantment', '{3}{W}', ['ramp', 'treasure', 'high-impact']));
+  activePlayer.library.push(realCard('Drawn Card', 'Sorcery', '{1}', []));
+  const gameState = new GameState([activePlayer, tithePlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = new TurnEngine({
+    behaviorRegistry: { get: () => ({ canCast: () => false }) },
+    combatEngine: { attack: () => {} },
+    decisionEngine: idleDecisionEngine(),
+    interactionEngine: new InteractionEngine()
+  });
+  turnEngine.takeTurn(gameState, activePlayer, { highestThreatOpponent: () => tithePlayer });
+  const history = originalHistory(gameState, 'Smothering Tithe trigger');
+  return activePlayer.hand.some((card) => card.name === 'Drawn Card')
+    && tithePlayer.metrics.treasureTriggers === 1
+    && tithePlayer.tokenManager.treasureCount() === 1
+    && history
+    && history.windowType === WINDOW_TYPES.TRIGGERED_ABILITY
+    && history.priorityResult.reason === 'all_players_passed'
+    && tithePlayer.metrics.interactionWindowsOpened === 1
+    && debugIncludes(gameState, `Interaction window opens [${WINDOW_TYPES.TRIGGERED_ABILITY}/${ACTION_TYPES.HIGH_IMPACT}]`)
+    && debugIncludes(gameState, 'Smothering Tithe created 1 Treasure');
+}
+
+function realTurnEngineUpkeepGatesActivatedWindow() {
+  const quietPlayer = realPlayer('Quiet Monolith');
+  const quietBasalt = quietPlayer.addPermanent(realCard('Basalt Monolith', 'Artifact', '{3}', ['artifact', 'ramp', 'mana-rock']));
+  quietBasalt.tapped = true;
+  addRealLands(quietPlayer, 'Wastes', 3);
+  const quietOpponent = realPlayer('Quiet Opponent');
+  const quietGame = new GameState([quietPlayer, quietOpponent], { debug: true });
+  quietGame.turn = 4;
+  const quietTurn = new TurnEngine({
+    behaviorRegistry: { get: () => ({ canCast: () => false }) },
+    combatEngine: { attack: () => {} },
+    decisionEngine: idleDecisionEngine(),
+    interactionEngine: new InteractionEngine()
+  });
+  quietTurn.takeTurn(quietGame, quietPlayer, { highestThreatOpponent: () => quietOpponent });
+
+  const comboPlayer = realPlayer('Combo Monolith');
+  const comboBasalt = comboPlayer.addPermanent(realCard('Basalt Monolith', 'Artifact', '{3}', ['artifact', 'ramp', 'mana-rock']));
+  comboBasalt.tapped = true;
+  comboPlayer.addPermanent(realCard('Rings of Brighthearth', 'Artifact', '{3}', ['artifact', 'combo-piece']));
+  addRealLands(comboPlayer, 'Wastes', 3);
+  const comboOpponent = realPlayer('Combo Opponent');
+  const comboGame = new GameState([comboPlayer, comboOpponent], { debug: true });
+  comboGame.turn = 4;
+  const comboTurn = new TurnEngine({
+    behaviorRegistry: { get: () => ({ canCast: () => false }) },
+    combatEngine: { attack: () => {} },
+    decisionEngine: idleDecisionEngine(),
+    interactionEngine: new InteractionEngine()
+  });
+  comboTurn.takeTurn(comboGame, comboPlayer, { highestThreatOpponent: () => comboOpponent });
+  const history = originalHistory(comboGame, 'Basalt Monolith untap ability');
+
+  return quietGame.stackManager.history.length === 0
+    && quietBasalt.tapped
+    && !quietPlayer.metrics.interactionWindowsOpened
+    && history
+    && history.windowType === WINDOW_TYPES.ACTIVATED_ABILITY
+    && history.actionType === ACTION_TYPES.COMBO
+    && history.priorityResult.reason === 'all_players_passed'
+    && !comboBasalt.tapped
+    && comboPlayer.metrics.untapAbilitiesActivated === 1
+    && comboPlayer.metrics.interactionWindowsOpened === 1
+    && debugIncludes(comboGame, `Interaction window opens [${WINDOW_TYPES.ACTIVATED_ABILITY}/${ACTION_TYPES.COMBO}]`);
+}
+
 function unansweredLethalCombatResolves() {
   const attacker = fixturePlayer('Attacker', { primaryArchetype: 'aggro' });
   const defender = fixturePlayer('Defender', { primaryArchetype: 'midrange' });
@@ -835,6 +910,54 @@ function mockGame(players) {
   const gameState = new GameState(players, { debug: true });
   gameState.turn = 4;
   return gameState;
+}
+
+function realPlayer(name, profile = {}) {
+  const player = new PlayerState({
+    id: name.toLowerCase().replace(/\W+/g, '-'),
+    name,
+    deck: { commanders: [], mainboard: [] },
+    cardDatabase: { get: () => null },
+    random: { shuffle: (cards) => cards, next: () => 0.25 },
+    strategyProfile: {
+      primaryArchetype: 'midrange',
+      controlPriority: 50,
+      removalPriority: 50,
+      estimatedBracket: 2,
+      ...profile
+    }
+  });
+  player.commandZone = [];
+  player.refreshManaPool();
+  return player;
+}
+
+function realCard(name, typeLine, manaCost = '', tags = []) {
+  const colors = ['W', 'U', 'B', 'R', 'G'].filter((color) => manaCost.includes(`{${color}}`));
+  const numeric = Number((manaCost.match(/\d+/) || [0])[0]);
+  return {
+    name,
+    typeLine,
+    manaCost,
+    manaValue: Math.max(0, numeric + colors.length),
+    tags,
+    colors,
+    colorIdentity: colors,
+    oracleText: ''
+  };
+}
+
+function addRealLands(player, name, count) {
+  for (let index = 0; index < count; index += 1) {
+    player.addPermanent(realCard(name, 'Land', '', ['land']), { summoningSick: false });
+  }
+}
+
+function idleDecisionEngine() {
+  return {
+    chooseCastAction: () => null,
+    shouldAttemptCombo: () => null
+  };
 }
 
 function debugIncludes(gameState, text) {

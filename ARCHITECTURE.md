@@ -55,15 +55,17 @@ This project is a backend-first, plain JavaScript Commander simulator with a sma
 - `InteractionWindow` describes an important action such as a spell, board wipe, combo attempt, or lethal combat.
 - `StackObject` wraps the window for stack-like debug/history.
 - `PriorityManager` runs deterministic Priority Passes v1.
+- Nested Responses / Counterplay v1 allows exactly one response object on top of the original object, with one counterplay opportunity from the original controller.
+- Activated / Triggered Interaction Windows v1 wires selected production paths, currently Smothering Tithe-style draw triggers and high-impact Monolith untap activations.
 - `StackManager` resolves one pending object and records history.
 
 Current flow:
 
 ```text
-interaction window -> stack object -> priority pass -> resolve pending -> history
+interaction window -> original stack object -> priority pass -> optional one-deep response object -> resolve response -> resolve original -> history
 ```
 
-This is not full MTG priority or stack behavior. Nested responses are planned next.
+This is not full MTG priority or stack behavior. There are no repeated priority loops, no 3+ deep counter wars, and most activated/triggered abilities still do not use stack timing.
 
 ## Mana System
 
@@ -90,4 +92,3 @@ This is not full MTG priority or stack behavior. Nested responses are planned ne
 - Behavior changes should add focused regression coverage.
 - Interaction/stack/priority changes should use real `GameState` and production stack paths when possible.
 - Full preserved suite is listed in [docs/testing-guide.md](docs/testing-guide.md).
-

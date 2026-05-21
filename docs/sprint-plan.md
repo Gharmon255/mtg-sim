@@ -14,6 +14,7 @@ This document tracks the interaction/stack/priority sprint and the next safe upg
 - Step 4: Nested Responses / Counterplay v1 - Implemented
 - Step 4.5: Harden Nested Responses / Counterplay v1 - Done
 - Step 5: Activated / Triggered Interaction Windows v1 - Implemented
+- Step 5.5: Harden Activated / Triggered Interaction Windows v1 - Done
 
 ## Step 4 Status
 
@@ -35,9 +36,13 @@ Out of scope for Step 4:
 - Full LIFO multi-object rules engine.
 - Complete Oracle timing rules.
 
+## Step 5.5 Status
+
+The narrow activated/triggered window wiring has integration coverage for real TurnEngine draw-step Smothering Tithe-style triggers and real upkeep-gated Basalt Monolith / Rings untap windows. The docs now call out that unsupported triggers and upkeep payments may still resolve through direct heuristics.
+
 ## Next Target
 
-Harden the narrow activated/triggered window wiring after more real-game fixture review.
+Broaden activated/triggered coverage carefully, one production path at a time.
 
 ## Future Steps
 
