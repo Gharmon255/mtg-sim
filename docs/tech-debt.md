@@ -8,8 +8,9 @@ Known issues and cleanup targets for future agents.
 - Table order is deterministic but not skill/readiness order; this is intentional for Priority Passes v1 but may need richer policy later.
 - `stackObjectsProcessed` and `stackObjectsResolved` are internal/player metrics and still need future `ReportGenerator` surfacing if users need them in reports.
 - Some direct `StackManager` tests exist for guard behavior only; behavior assertions should prefer production `InteractionEngine.attemptToStop` paths.
-- Activated and triggered production windows are limited to selected paths; TurnEngine draw-step Smothering Tithe-style draw-tax triggers and UpkeepEngine/AbilityResolver high-impact Monolith untap activations have coverage, but most abilities still bypass stack timing.
+- Activated and triggered production windows are limited to selected paths; TurnEngine draw-step Smothering Tithe-style draw-tax triggers, TurnEngine opponent-cast Rhystic Study-style triggers, and UpkeepEngine/AbilityResolver high-impact Monolith untap activations have coverage, but most abilities still bypass stack timing.
 - Some trigger and upkeep paths intentionally resolve without a stack window when no interaction engine/context is present or when the current gating does not consider the ability interaction-relevant.
+- Rhystic Study-style opponent-cast triggers do not model exact tax payment rules and do not cover every Mystic Remora / Esper Sentinel-style trigger yet.
 - Board wipe and combo priority integration tests exist; they should continue expanding with realistic game-state fixtures.
 - Nested Responses / Counterplay v1 has one-deep counterspell/protection coverage, but no 3+ deep counter wars or repeated priority loops.
 

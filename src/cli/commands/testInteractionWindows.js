@@ -40,6 +40,11 @@ function testInteractionWindowsCommand() {
     ['Real TurnEngine path opens spell interaction window and stack history', realTurnEngineOpensSpellStackWindow],
     ['Real TurnEngine draw path opens triggered ability interaction window', realTurnEngineDrawOpensTriggeredWindow],
     ['Real TurnEngine upkeep path gates activated ability interaction window', realTurnEngineUpkeepGatesActivatedWindow],
+    ['Rhystic-style opponent-cast trigger opens and resolves', rhysticOpponentCastTriggerResolves],
+    ['Rhystic-style opponent-cast trigger can be stopped', rhysticOpponentCastTriggerStopped],
+    ['Real TurnEngine cast path opens Rhystic-style trigger window', realTurnEngineCastOpensRhysticWindow],
+    ['Low-impact opponent cast does not open Rhystic-style trigger window', lowImpactCastDoesNotOpenRhysticWindow],
+    ['No Rhystic-style permanent means no opponent-cast trigger window', noRhysticMeansNoOpponentCastTrigger],
     ['Unanswered lethal combat resolves without false interaction metrics', unansweredLethalCombatResolves]
   ];
 
@@ -812,6 +817,108 @@ function realTurnEngineUpkeepGatesActivatedWindow() {
     && debugIncludes(comboGame, `Interaction window opens [${WINDOW_TYPES.ACTIVATED_ABILITY}/${ACTION_TYPES.COMBO}]`);
 }
 
+function rhysticOpponentCastTriggerResolves() {
+  const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  studyPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyPlayer.library.push(realCard('Drawn From Rhystic', 'Instant', '{U}', []));
+  const castCard = spell('The One Ring', ['draw', 'high-impact'], 4);
+  const gameState = new GameState([caster, studyPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => studyPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  const spellWindow = originalHistory(gameState, 'The One Ring');
+  const triggerWindow = originalHistory(gameState, 'Rhystic Study trigger');
+  return spellWindow
+    && triggerWindow
+    && triggerWindow.windowType === WINDOW_TYPES.TRIGGERED_ABILITY
+    && triggerWindow.priorityResult.reason === 'all_players_passed'
+    && studyPlayer.cardsDrawn === 1
+    && studyPlayer.hand.some((card) => card.name === 'Drawn From Rhystic')
+    && studyPlayer.metrics.rhysticStudyDraws === 1
+    && studyPlayer.metrics.interactionWindowsOpened === 1
+    && caster.metrics.interactionWindowsOpened === 1
+    && debugIncludes(gameState, 'Rhystic Study drew 1 card for Study Player');
+}
+
+function rhysticOpponentCastTriggerStopped() {
+  const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster', { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  studyPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyPlayer.library.push(realCard('Would Have Drawn', 'Instant', '{U}', []));
+  caster.addPermanent(realCard('Forest', 'Land', '', ['land']), { summoningSick: false });
+  caster.hand.push(realCard('Nature\'s Claim', 'Instant', '{G}', ['removal']));
+  const castCard = spell('The One Ring', ['draw', 'high-impact'], 4);
+  const gameState = new GameState([caster, studyPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => studyPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  const triggerWindow = originalHistory(gameState, 'Rhystic Study trigger');
+  const response = responseHistory(gameState);
+  return triggerWindow
+    && response
+    && triggerWindow.stopped
+    && response.respondsTo === triggerWindow.id
+    && studyPlayer.cardsDrawn === 0
+    && !studyPlayer.metrics.rhysticStudyDraws
+    && caster.metrics.removalUsed === 1
+    && debugIncludes(gameState, 'Rhystic Study trigger was stopped before Study Player drew a card');
+}
+
+function realTurnEngineCastOpensRhysticWindow() {
+  const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('The One Ring', ['draw', 'high-impact'], 4);
+  studyPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyPlayer.library.push(realCard('TurnEngine Rhystic Draw', 'Instant', '{U}', []));
+  caster.hand.push(castCard);
+  const gameState = new GameState([caster, studyPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine(scriptedDecisionEngine({ type: 'cast_draw', card: castCard }));
+  turnEngine.takeTurn(gameState, caster, { highestThreatOpponent: () => studyPlayer });
+  const spellWindow = originalHistory(gameState, 'The One Ring');
+  const triggerWindow = originalHistory(gameState, 'Rhystic Study trigger');
+  return spellWindow
+    && triggerWindow
+    && triggerWindow.windowType === WINDOW_TYPES.TRIGGERED_ABILITY
+    && triggerWindow.priority
+    && triggerWindow.priorityResult
+    && studyPlayer.cardsDrawn === 1
+    && debugIncludes(gameState, `Interaction window opens [${WINDOW_TYPES.TRIGGERED_ABILITY}/${ACTION_TYPES.HIGH_IMPACT}]`);
+}
+
+function lowImpactCastDoesNotOpenRhysticWindow() {
+  const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('Ponder', ['draw'], 1);
+  studyPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyPlayer.library.push(realCard('Should Stay Put', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, studyPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => studyPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  return !originalHistory(gameState, 'Rhystic Study trigger')
+    && gameState.stackManager.history.length === 0
+    && studyPlayer.cardsDrawn === 0
+    && !studyPlayer.metrics.interactionWindowsOpened;
+}
+
+function noRhysticMeansNoOpponentCastTrigger() {
+  const observer = realPlayer('Observer', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('The One Ring', ['draw', 'high-impact'], 4);
+  observer.library.push(realCard('Should Not Draw', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, observer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => observer }, { type: 'cast_draw', card: castCard }, castCard);
+  return originalHistory(gameState, 'The One Ring')
+    && !originalHistory(gameState, 'Rhystic Study trigger')
+    && observer.cardsDrawn === 0
+    && caster.metrics.interactionWindowsOpened === 1
+    && !observer.metrics.interactionWindowsOpened;
+}
+
 function unansweredLethalCombatResolves() {
   const attacker = fixturePlayer('Attacker', { primaryArchetype: 'aggro' });
   const defender = fixturePlayer('Defender', { primaryArchetype: 'midrange' });
@@ -951,6 +1058,35 @@ function addRealLands(player, name, count) {
   for (let index = 0; index < count; index += 1) {
     player.addPermanent(realCard(name, 'Land', '', ['land']), { summoningSick: false });
   }
+}
+
+function minimalTurnEngine(decisionEngine = idleDecisionEngine()) {
+  return new TurnEngine({
+    behaviorRegistry: {
+      get: () => ({
+        canCast: () => true,
+        cast: ({ player, card }) => {
+          player.metrics.spellsCast = (player.metrics.spellsCast || 0) + 1;
+          return { message: `${player.name} casts ${card.name}.` };
+        }
+      })
+    },
+    combatEngine: { attack: () => {} },
+    decisionEngine,
+    interactionEngine: new InteractionEngine()
+  });
+}
+
+function scriptedDecisionEngine(action) {
+  let used = false;
+  return {
+    chooseCastAction: () => {
+      if (used) return null;
+      used = true;
+      return action;
+    },
+    shouldAttemptCombo: () => null
+  };
 }
 
 function idleDecisionEngine() {

@@ -112,6 +112,7 @@ Production simulation opens explicit windows mainly for:
 - combat/lethal attacks
 - combo attempts
 - selected triggered abilities, currently Smothering Tithe-style draw-tax treasure triggers
+- selected opponent-cast triggered abilities, currently Rhystic Study-style draw triggers
 - selected activated abilities, currently high-impact Monolith untap/combo-engine activations
 
 ## Activated / Triggered Wiring v1
@@ -130,7 +131,20 @@ Smothering Tithe-style triggered windows currently open only when the production
 
 This is intentional Step 5 narrow wiring. Not every draw-tax trigger opens a stack window yet; future work can broaden trigger coverage one production path at a time.
 
-This does not mean every triggered or activated ability uses stack timing. Smothering Tithe/Rhystic-style triggers may resolve without a stack window when no interaction engine/context is present or when the current narrow gating does not consider the trigger interaction-relevant. Likewise, some Grim Monolith / Mana Vault-style upkeep untap/payment paths may resolve without an interaction window by heuristic design. Step 5 only proves selected production routes can use the same `InteractionWindow -> StackObject -> PriorityManager -> optional one-deep counterplay -> history` path.
+## Opponent-Cast Triggered Wiring v1
+
+Step 6 adds one narrow opponent-cast triggered path:
+
+- `TurnEngine.castAction` notifies `TriggeredAbilityEngine.afterOpponentCast` after a spell has successfully resolved through the simulator's cast flow.
+- `TriggeredAbilityEngine` currently looks only for `Rhystic Study` controlled by an opponent of the casting player.
+- The trigger opens a `WINDOW_TYPES.TRIGGERED_ABILITY` window only when the cast spell is interaction-relevant, such as a high-impact spell, win condition, stax piece, board wipe, combo-wincon, or a spell with mana value 4 or greater.
+- The window records source player, source card, casting/target player, cast-card debug metadata, impact score, and a reason.
+- If no one stops the trigger, the Rhystic controller draws one card as the current heuristic benefit.
+- If the trigger is stopped, the draw is skipped and stack/priority/history records the stopped trigger.
+
+This does not implement exact Rhystic Study tax payment rules yet. Low-impact casts currently do not open an extra stack window, and not every Mystic Remora / Esper Sentinel / draw-tax-style trigger is wired. Future work should broaden this one production path at a time.
+
+This does not mean every triggered or activated ability uses stack timing. Smothering Tithe/Rhystic-style triggers may resolve without a stack window when no interaction engine/context is present or when the current narrow gating does not consider the trigger interaction-relevant. Likewise, some Grim Monolith / Mana Vault-style upkeep untap/payment paths may resolve without an interaction window by heuristic design. Steps 5 and 6 only prove selected production routes can use the same `InteractionWindow -> StackObject -> PriorityManager -> optional one-deep counterplay -> history` path.
 
 ## Remaining Limits
 

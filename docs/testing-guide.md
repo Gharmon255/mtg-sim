@@ -17,7 +17,7 @@ npm run build
 
 ## When Each Test Matters
 
-- `npm run test:interaction`: interaction windows, stack objects, priority passes, combat/lethal windows, board wipe windows, combo attempt windows, TurnEngine draw-trigger integration coverage, and debug/history metadata.
+- `npm run test:interaction`: interaction windows, stack objects, priority passes, combat/lethal windows, board wipe windows, combo attempt windows, TurnEngine draw-trigger and opponent-cast trigger integration coverage, and debug/history metadata.
 - `npm run test:behaviors`: exact card behavior priorities and card-specific sequencing.
 - `npm run test:mana`: colored mana requirements, fixing, fetch/shock heuristics, and mana quality basics.
 - `npm run test:mana:sources`: source-level mana activation, tapping, treasures, one-shot mana, dorks, and double-spend prevention.

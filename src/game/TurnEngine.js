@@ -134,6 +134,7 @@ class TurnEngine {
       const result = this.decisionEngine.tutorResolver.resolveTutor(player, gameState, card);
       gameState.record(result.message);
       recordManaPaymentDebug(gameState, player, card);
+      this.triggeredAbilityEngine.afterOpponentCast(gameState, player, card, { action, targeting });
       return;
     }
 
@@ -180,6 +181,7 @@ class TurnEngine {
     const explanation = behavior.explainDecision ? behavior.explainDecision({ gameState, player, card, action }) : '';
     if (explanation) recordBehaviorEvent(player, card, explanation);
     gameState.recordDebug && gameState.recordDebug(`${player.name} chose ${card.name} as ${action.type} with ${explanation || sequencingReason(action, player)}.`);
+    this.triggeredAbilityEngine.afterOpponentCast(gameState, player, card, { action, targeting });
   }
 
   tryCastCommander(gameState, player, targeting, preferredCommander = null) {
