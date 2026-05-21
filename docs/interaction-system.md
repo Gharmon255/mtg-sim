@@ -121,6 +121,15 @@ Step 5 adds narrow production wiring for:
 - `TurnEngine` draw-step production into `TriggeredAbilityEngine` Smothering Tithe-style opponent draw triggers. If the trigger is stopped, the Treasure effect is skipped; if no one responds, the draw still happened and Treasures are created.
 - `UpkeepEngine` / `AbilityResolver` production into high-impact Monolith untap activations when they look combo-relevant. If the activation is stopped, costs are not paid and the ability effect is skipped.
 
+Smothering Tithe-style triggered windows currently open only when the production path provides enough interaction context:
+
+- The trigger is running through a production path with an `InteractionEngine` available.
+- The trigger is considered interaction-relevant or high enough impact by current narrow gating.
+- The draw/trigger context can identify the source player, target/opponent, source card, and reason/debug text.
+- Otherwise, the trigger may resolve through the legacy heuristic path without opening a stack window.
+
+This is intentional Step 5 narrow wiring. Not every draw-tax trigger opens a stack window yet; future work can broaden trigger coverage one production path at a time.
+
 This does not mean every triggered or activated ability uses stack timing. Smothering Tithe/Rhystic-style triggers may resolve without a stack window when no interaction engine/context is present or when the current narrow gating does not consider the trigger interaction-relevant. Likewise, some Grim Monolith / Mana Vault-style upkeep untap/payment paths may resolve without an interaction window by heuristic design. Step 5 only proves selected production routes can use the same `InteractionWindow -> StackObject -> PriorityManager -> optional one-deep counterplay -> history` path.
 
 ## Remaining Limits
