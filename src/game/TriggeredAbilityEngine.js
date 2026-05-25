@@ -90,16 +90,7 @@ class TriggeredAbilityEngine {
       gameState.recordDebug && gameState.recordDebug(`Rhystic Study trigger was stopped before ${owner.name} drew a card.`);
       return;
     }
-    const before = owner.cardsDrawn || 0;
-    owner.draw(1);
-    const drawn = (owner.cardsDrawn || 0) - before;
-    if (drawn > 0) {
-      owner.metrics.rhysticStudyTriggers = (owner.metrics.rhysticStudyTriggers || 0) + 1;
-      owner.metrics.rhysticStudyDraws = (owner.metrics.rhysticStudyDraws || 0) + drawn;
-      gameState.recordDebug && gameState.recordDebug(`Rhystic Study drew ${drawn} card for ${owner.name}.`);
-    } else {
-      gameState.recordDebug && gameState.recordDebug(`Rhystic Study resolved for ${owner.name}, but no card was available to draw.`);
-    }
+    resolveTaxThenDraw(gameState, 'rhystic', owner, castingPlayer, castCard, permanent, options);
   }
 
   triggerMysticRemora(gameState, owner, castingPlayer, castCard, permanent, options = {}) {
@@ -127,16 +118,7 @@ class TriggeredAbilityEngine {
       gameState.recordDebug && gameState.recordDebug(`Mystic Remora trigger was stopped before ${owner.name} drew a card.`);
       return;
     }
-    const before = owner.cardsDrawn || 0;
-    owner.draw(1);
-    const drawn = (owner.cardsDrawn || 0) - before;
-    if (drawn > 0) {
-      owner.metrics.mysticRemoraTriggers = (owner.metrics.mysticRemoraTriggers || 0) + 1;
-      owner.metrics.mysticRemoraDraws = (owner.metrics.mysticRemoraDraws || 0) + drawn;
-      gameState.recordDebug && gameState.recordDebug(`Mystic Remora drew ${drawn} card for ${owner.name}.`);
-    } else {
-      gameState.recordDebug && gameState.recordDebug(`Mystic Remora resolved for ${owner.name}, but no card was available to draw.`);
-    }
+    resolveTaxThenDraw(gameState, 'mystic', owner, castingPlayer, castCard, permanent, options);
   }
 
   triggerEsperSentinel(gameState, owner, castingPlayer, castCard, permanent, options = {}) {
@@ -166,16 +148,7 @@ class TriggeredAbilityEngine {
       gameState.recordDebug && gameState.recordDebug(`Esper Sentinel trigger was stopped before ${owner.name} drew a card.`);
       return;
     }
-    const before = owner.cardsDrawn || 0;
-    owner.draw(1);
-    const drawn = (owner.cardsDrawn || 0) - before;
-    if (drawn > 0) {
-      owner.metrics.esperSentinelTriggers = (owner.metrics.esperSentinelTriggers || 0) + 1;
-      owner.metrics.esperSentinelDraws = (owner.metrics.esperSentinelDraws || 0) + drawn;
-      gameState.recordDebug && gameState.recordDebug(`Esper Sentinel drew ${drawn} card for ${owner.name}.`);
-    } else {
-      gameState.recordDebug && gameState.recordDebug(`Esper Sentinel resolved for ${owner.name}, but no card was available to draw.`);
-    }
+    resolveTaxThenDraw(gameState, 'esper', owner, castingPlayer, castCard, permanent, options);
   }
 
   triggerOneRing(gameState, player, permanent) {
@@ -316,6 +289,125 @@ function shouldPayForTithe(owner, drawingPlayer) {
   if (drawingPlayer.availableMana < 2) return false;
   if ((owner.threatScore || 0) > (drawingPlayer.threatScore || 0) + 5) return true;
   return profile.primaryArchetype === 'control' && drawingPlayer.availableMana >= 4;
+}
+
+function resolveTaxThenDraw(gameState, kind, owner, castingPlayer, castCard, permanent, options = {}) {
+  const config = taxConfig(kind, permanent);
+  owner.metrics[config.triggerMetric] = (owner.metrics[config.triggerMetric] || 0) + 1;
+  const decision = decideHeuristicTaxPayment(kind, owner, castingPlayer, castCard, permanent, options, config);
+  if (decision.shouldPay && payHeuristicTax(castingPlayer, config, decision)) {
+    owner.metrics[config.paidMetric] = (owner.metrics[config.paidMetric] || 0) + 1;
+    gameState.recordDebug && gameState.recordDebug(`${castingPlayer.name} pays ${config.label} heuristic tax (${decision.reason}); ${owner.name} does not draw.`);
+    return;
+  }
+
+  owner.metrics[config.declinedMetric] = (owner.metrics[config.declinedMetric] || 0) + 1;
+  gameState.recordDebug && gameState.recordDebug(`${castingPlayer.name} does not pay ${config.label} heuristic tax (${decision.reason}); ${owner.name} may draw.`);
+  const before = owner.cardsDrawn || 0;
+  owner.draw(1);
+  const drawn = (owner.cardsDrawn || 0) - before;
+  if (drawn > 0) {
+    owner.metrics[config.drawMetric] = (owner.metrics[config.drawMetric] || 0) + drawn;
+    gameState.recordDebug && gameState.recordDebug(`${config.label} drew ${drawn} card for ${owner.name}.`);
+  } else {
+    gameState.recordDebug && gameState.recordDebug(`${config.label} resolved for ${owner.name}, but no card was available to draw.`);
+  }
+}
+
+function taxConfig(kind, permanent) {
+  if (kind === 'mystic') {
+    return {
+      label: 'Mystic Remora',
+      amount: 4,
+      triggerMetric: 'mysticRemoraTriggers',
+      drawMetric: 'mysticRemoraDraws',
+      paidMetric: 'mysticTaxesPaid',
+      declinedMetric: 'mysticTaxesDeclined'
+    };
+  }
+  if (kind === 'esper') {
+    return {
+      label: 'Esper Sentinel',
+      amount: esperTaxAmount(permanent),
+      triggerMetric: 'esperSentinelTriggers',
+      drawMetric: 'esperSentinelDraws',
+      paidMetric: 'esperTaxesPaid',
+      declinedMetric: 'esperTaxesDeclined'
+    };
+  }
+  return {
+    label: 'Rhystic Study',
+    amount: 1,
+    triggerMetric: 'rhysticStudyTriggers',
+    drawMetric: 'rhysticStudyDraws',
+    paidMetric: 'rhysticTaxesPaid',
+    declinedMetric: 'rhysticTaxesDeclined'
+  };
+}
+
+function esperTaxAmount(permanent) {
+  const raw = Number((permanent && (permanent.power || (permanent.card || {}).power)) || 1);
+  return Number.isFinite(raw) && raw > 0 ? Math.max(1, Math.floor(raw)) : 1;
+}
+
+function decideHeuristicTaxPayment(kind, owner, castingPlayer, castCard, permanent, options, config) {
+  if (!owner || !castingPlayer || !castCard) return { shouldPay: false, reason: 'missing payment context' };
+  const taxCard = taxPaymentCard(config);
+  const canPay = canPayHeuristicTax(castingPlayer, taxCard);
+  if (!canPay) return { shouldPay: false, reason: `cannot pay ${config.amount}` };
+
+  const available = estimateAvailableMana(castingPlayer);
+  const estimatedPostCast = Math.max(0, available - Number(castCard.manaValue || 0));
+  const reserve = taxReserve(kind, castingPlayer, castCard, options);
+  const shouldPay = estimatedPostCast >= config.amount + reserve;
+  return {
+    shouldPay,
+    taxCard,
+    reason: shouldPay
+      ? `estimated spare mana ${estimatedPostCast} covers tax ${config.amount} with reserve ${reserve}`
+      : `estimated spare mana ${estimatedPostCast} below tax ${config.amount} plus reserve ${reserve}`
+  };
+}
+
+function canPayHeuristicTax(player, taxCard) {
+  if (player && typeof player.canPayCard === 'function') return player.canPayCard(taxCard);
+  return Number((player && player.availableMana) || 0) >= Number(taxCard.manaValue || 0);
+}
+
+function payHeuristicTax(player, config, decision) {
+  const taxCard = decision.taxCard || taxPaymentCard(config);
+  if (player && typeof player.payCard === 'function') return player.payCard(taxCard);
+  if (Number((player && player.availableMana) || 0) < Number(config.amount || 0)) return false;
+  player.availableMana -= Number(config.amount || 0);
+  return true;
+}
+
+function taxPaymentCard(config) {
+  return {
+    name: `${config.label} heuristic tax`,
+    manaCost: `{${config.amount}}`,
+    manaValue: config.amount,
+    typeLine: 'Tax Payment',
+    tags: []
+  };
+}
+
+function estimateAvailableMana(player) {
+  if (player && typeof player.refreshManaPool === 'function') {
+    const pool = player.refreshManaPool();
+    return pool && typeof pool.total === 'function' ? pool.total() : Number(player.availableMana || 0);
+  }
+  return Number((player && player.availableMana) || 0);
+}
+
+function taxReserve(kind, castingPlayer, castCard, options = {}) {
+  const profile = (castingPlayer && castingPlayer.strategyProfile) || {};
+  const highImpact = isInteractionRelevantCast(castCard, options);
+  let reserve = kind === 'mystic' ? 2 : kind === 'esper' ? 1 : highImpact ? 2 : 0;
+  if (profile.primaryArchetype === 'control') reserve = Math.max(0, reserve - 1);
+  if (profile.primaryArchetype === 'combo' && highImpact) reserve += 1;
+  if ((castingPlayer.hand || []).length <= 2) reserve += 1;
+  return reserve;
 }
 
 module.exports = { TriggeredAbilityEngine };

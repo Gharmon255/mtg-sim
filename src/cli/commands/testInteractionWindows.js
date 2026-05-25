@@ -43,16 +43,22 @@ function testInteractionWindowsCommand() {
     ['Real TurnEngine upkeep path gates activated ability interaction window', realTurnEngineUpkeepGatesActivatedWindow],
     ['Rhystic-style opponent-cast trigger opens and resolves', rhysticOpponentCastTriggerResolves],
     ['Rhystic-style opponent-cast trigger can be stopped', rhysticOpponentCastTriggerStopped],
+    ['Rhystic-style tax can be paid to skip draw', rhysticTaxPaidSkipsDraw],
+    ['Rhystic-style tax declined allows draw', rhysticTaxDeclinedAllowsDraw],
     ['Real TurnEngine cast path opens Rhystic-style trigger window', realTurnEngineCastOpensRhysticWindow],
     ['Stopped original spell does not open Rhystic-style trigger', stoppedOriginalSpellDoesNotOpenRhysticTrigger],
+    ['Stopped tax trigger does not ask for payment', stoppedTaxTriggerDoesNotAskPayment],
     ['Tutor spell cast can open Rhystic-style trigger window', tutorCastCanOpenRhysticTrigger],
     ['Multiple Rhystic-style controllers open sequential trigger windows', multipleRhysticControllersOpenSequentialWindows],
     ['Real TurnEngine commander cast routes through opponent-cast hook', realTurnEngineCommanderCastRoutesOpponentCastHook],
     ['Rhystic-style trigger opens from commander cast', rhysticTriggersFromCommanderCast],
+    ['Commander-cast Rhystic path uses tax heuristic', commanderCastRhysticTaxHeuristic],
     ['Mystic and Esper skip creature commander casts', mysticEsperSkipCreatureCommanderCast],
     ['Failed commander cast does not open opponent-cast trigger windows', failedCommanderCastDoesNotOpenOpponentCastTriggers],
     ['Mystic Remora-style trigger opens and resolves on noncreature cast', mysticNonCreatureTriggerResolves],
     ['Mystic Remora-style trigger can be stopped', mysticNonCreatureTriggerStopped],
+    ['Mystic Remora-style tax can be paid to skip draw', mysticTaxPaidSkipsDraw],
+    ['Mystic Remora-style tax declined allows draw', mysticTaxDeclinedAllowsDraw],
     ['Creature cast does not open Mystic Remora-style trigger', creatureCastDoesNotOpenMysticTrigger],
     ['No Mystic permanent means no Mystic Remora-style trigger', noMysticMeansNoMysticTrigger],
     ['Mystic Remora-style trigger coexists with high-impact spell window', mysticTriggerCoexistsWithHighImpactSpellWindow],
@@ -61,6 +67,8 @@ function testInteractionWindowsCommand() {
     ['Low-MV noncreature triggers Mystic but not Rhystic', lowMvNonCreatureTriggersMysticNotRhystic],
     ['Esper Sentinel-style trigger opens and resolves on noncreature cast', esperNonCreatureTriggerResolves],
     ['Esper Sentinel-style trigger can be stopped', esperNonCreatureTriggerStopped],
+    ['Esper Sentinel-style tax can be paid to skip draw', esperTaxPaidSkipsDraw],
+    ['Esper Sentinel-style tax declined allows draw', esperTaxDeclinedAllowsDraw],
     ['Creature cast does not open Esper Sentinel-style trigger', creatureCastDoesNotOpenEsperTrigger],
     ['No Esper permanent means no Esper Sentinel-style trigger', noEsperMeansNoEsperTrigger],
     ['Ambiguous no-type cast does not open Esper Sentinel-style trigger', ambiguousNoTypeCastDoesNotOpenEsperTrigger],
@@ -891,6 +899,46 @@ function rhysticOpponentCastTriggerStopped() {
     && debugIncludes(gameState, 'Rhystic Study trigger was stopped before Study Player drew a card');
 }
 
+function rhysticTaxPaidSkipsDraw() {
+  const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('The One Ring', ['draw', 'high-impact'], 4);
+  studyPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyPlayer.library.push(realCard('Should Not Draw', 'Instant', '{U}', []));
+  addRealLands(caster, 'Plains', 8);
+  const gameState = new GameState([caster, studyPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => studyPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  const triggerWindow = originalHistory(gameState, 'Rhystic Study trigger');
+  return triggerWindow
+    && !triggerWindow.stopped
+    && studyPlayer.metrics.rhysticStudyTriggers === 1
+    && studyPlayer.metrics.rhysticTaxesPaid === 1
+    && !studyPlayer.metrics.rhysticTaxesDeclined
+    && studyPlayer.cardsDrawn === 0
+    && !studyPlayer.metrics.rhysticStudyDraws
+    && debugIncludes(gameState, 'Caster pays Rhystic Study heuristic tax');
+}
+
+function rhysticTaxDeclinedAllowsDraw() {
+  const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('The One Ring', ['draw', 'high-impact'], 4);
+  studyPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyPlayer.library.push(realCard('Drawn From Declined Rhystic', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, studyPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => studyPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  return studyPlayer.metrics.rhysticStudyTriggers === 1
+    && !studyPlayer.metrics.rhysticTaxesPaid
+    && studyPlayer.metrics.rhysticTaxesDeclined === 1
+    && studyPlayer.metrics.rhysticStudyDraws === 1
+    && studyPlayer.cardsDrawn === 1
+    && debugIncludes(gameState, 'Caster does not pay Rhystic Study heuristic tax');
+}
+
 function realTurnEngineCastOpensRhysticWindow() {
   const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
   const caster = realPlayer('Caster');
@@ -936,6 +984,29 @@ function stoppedOriginalSpellDoesNotOpenRhysticTrigger() {
     && !studyPlayer.metrics.interactionWindowsOpened
     && caster.metrics.interactionWindowsOpened === 1
     && debugIncludes(gameState, 'Counterspell used to stop The One Ring');
+}
+
+function stoppedTaxTriggerDoesNotAskPayment() {
+  const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster', { primaryArchetype: 'control', controlPriority: 90, estimatedBracket: 4 });
+  const castCard = spell('The One Ring', ['draw', 'high-impact'], 4);
+  studyPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyPlayer.library.push(realCard('Would Have Drawn', 'Instant', '{U}', []));
+  caster.addPermanent(realCard('Forest', 'Land', '', ['land']), { summoningSick: false });
+  caster.hand.push(realCard('Nature\'s Claim', 'Instant', '{G}', ['removal']));
+  const gameState = new GameState([caster, studyPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => studyPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  const triggerWindow = originalHistory(gameState, 'Rhystic Study trigger');
+  return triggerWindow
+    && triggerWindow.stopped
+    && !studyPlayer.metrics.rhysticTaxesPaid
+    && !studyPlayer.metrics.rhysticTaxesDeclined
+    && !studyPlayer.metrics.rhysticStudyTriggers
+    && !studyPlayer.metrics.rhysticStudyDraws
+    && !debugIncludes(gameState, 'pays Rhystic Study heuristic tax')
+    && !debugIncludes(gameState, 'does not pay Rhystic Study heuristic tax');
 }
 
 function tutorCastCanOpenRhysticTrigger() {
@@ -1042,6 +1113,29 @@ function rhysticTriggersFromCommanderCast() {
     && !originalHistory(gameState, 'Esper Sentinel trigger');
 }
 
+function commanderCastRhysticTaxHeuristic() {
+  const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Commander Caster');
+  const commander = realCard('Ghalta, Primal Hunger', 'Legendary Creature', '{2}{G}{G}', ['creature', 'high-impact']);
+  caster.commandZone.push(commander);
+  addRealLands(caster, 'Forest', 8);
+  studyPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyPlayer.library.push(realCard('Should Not Draw', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, studyPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  const cast = turnEngine.tryCastCommander(gameState, caster, { highestThreatOpponent: () => studyPlayer });
+  const triggerWindow = originalHistory(gameState, 'Rhystic Study trigger');
+  return cast === true
+    && triggerWindow
+    && triggerWindow.debug.castActionType === 'cast_commander'
+    && studyPlayer.metrics.rhysticStudyTriggers === 1
+    && studyPlayer.metrics.rhysticTaxesPaid === 1
+    && !studyPlayer.metrics.rhysticStudyDraws
+    && studyPlayer.cardsDrawn === 0
+    && debugIncludes(gameState, 'Commander Caster pays Rhystic Study heuristic tax');
+}
+
 function mysticEsperSkipCreatureCommanderCast() {
   const taxPlayer = realPlayer('Tax Player', { estimatedBracket: 3 });
   const caster = realPlayer('Commander Caster');
@@ -1135,6 +1229,44 @@ function mysticNonCreatureTriggerStopped() {
     && !remoraPlayer.metrics.mysticRemoraDraws
     && caster.metrics.removalUsed === 1
     && debugIncludes(gameState, 'Mystic Remora trigger was stopped before Remora Player drew a card');
+}
+
+function mysticTaxPaidSkipsDraw() {
+  const remoraPlayer = realPlayer('Remora Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('Ponder', ['draw'], 1);
+  remoraPlayer.addPermanent(realCard('Mystic Remora', 'Enchantment', '{U}', ['draw', 'high-impact']));
+  remoraPlayer.library.push(realCard('Should Not Draw', 'Instant', '{U}', []));
+  addRealLands(caster, 'Island', 8);
+  const gameState = new GameState([caster, remoraPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => remoraPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  return originalHistory(gameState, 'Mystic Remora trigger')
+    && remoraPlayer.metrics.mysticRemoraTriggers === 1
+    && remoraPlayer.metrics.mysticTaxesPaid === 1
+    && !remoraPlayer.metrics.mysticTaxesDeclined
+    && remoraPlayer.cardsDrawn === 0
+    && !remoraPlayer.metrics.mysticRemoraDraws
+    && debugIncludes(gameState, 'Caster pays Mystic Remora heuristic tax');
+}
+
+function mysticTaxDeclinedAllowsDraw() {
+  const remoraPlayer = realPlayer('Remora Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('Ponder', ['draw'], 1);
+  remoraPlayer.addPermanent(realCard('Mystic Remora', 'Enchantment', '{U}', ['draw', 'high-impact']));
+  remoraPlayer.library.push(realCard('Drawn From Declined Remora', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, remoraPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => remoraPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  return remoraPlayer.metrics.mysticRemoraTriggers === 1
+    && !remoraPlayer.metrics.mysticTaxesPaid
+    && remoraPlayer.metrics.mysticTaxesDeclined === 1
+    && remoraPlayer.metrics.mysticRemoraDraws === 1
+    && remoraPlayer.cardsDrawn === 1
+    && debugIncludes(gameState, 'Caster does not pay Mystic Remora heuristic tax');
 }
 
 function creatureCastDoesNotOpenMysticTrigger() {
@@ -1315,6 +1447,44 @@ function esperNonCreatureTriggerStopped() {
     && !sentinelPlayer.metrics.esperSentinelDraws
     && caster.metrics.removalUsed === 1
     && debugIncludes(gameState, 'Esper Sentinel trigger was stopped before Sentinel Player drew a card');
+}
+
+function esperTaxPaidSkipsDraw() {
+  const sentinelPlayer = realPlayer('Sentinel Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('Ponder', ['draw'], 1);
+  sentinelPlayer.addPermanent(realCard('Esper Sentinel', 'Artifact Creature', '{W}', ['draw', 'esper-sentinel']));
+  sentinelPlayer.library.push(realCard('Should Not Draw', 'Instant', '{W}', []));
+  addRealLands(caster, 'Plains', 4);
+  const gameState = new GameState([caster, sentinelPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => sentinelPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  return originalHistory(gameState, 'Esper Sentinel trigger')
+    && sentinelPlayer.metrics.esperSentinelTriggers === 1
+    && sentinelPlayer.metrics.esperTaxesPaid === 1
+    && !sentinelPlayer.metrics.esperTaxesDeclined
+    && sentinelPlayer.cardsDrawn === 0
+    && !sentinelPlayer.metrics.esperSentinelDraws
+    && debugIncludes(gameState, 'Caster pays Esper Sentinel heuristic tax');
+}
+
+function esperTaxDeclinedAllowsDraw() {
+  const sentinelPlayer = realPlayer('Sentinel Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('Ponder', ['draw'], 1);
+  sentinelPlayer.addPermanent(realCard('Esper Sentinel', 'Artifact Creature', '{W}', ['draw', 'esper-sentinel']));
+  sentinelPlayer.library.push(realCard('Drawn From Declined Sentinel', 'Instant', '{W}', []));
+  const gameState = new GameState([caster, sentinelPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => sentinelPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  return sentinelPlayer.metrics.esperSentinelTriggers === 1
+    && !sentinelPlayer.metrics.esperTaxesPaid
+    && sentinelPlayer.metrics.esperTaxesDeclined === 1
+    && sentinelPlayer.metrics.esperSentinelDraws === 1
+    && sentinelPlayer.cardsDrawn === 1
+    && debugIncludes(gameState, 'Caster does not pay Esper Sentinel heuristic tax');
 }
 
 function creatureCastDoesNotOpenEsperTrigger() {
@@ -1533,10 +1703,16 @@ function reportGeneratorIncludesTaxDrawMetrics() {
       stackObjectsResolved: 2,
       rhysticStudyTriggers: 1,
       rhysticStudyDraws: 1,
+      rhysticTaxesPaid: 1,
+      rhysticTaxesDeclined: 1,
       mysticRemoraTriggers: 1,
       mysticRemoraDraws: 1,
+      mysticTaxesPaid: 1,
+      mysticTaxesDeclined: 1,
       esperSentinelTriggers: 1,
-      esperSentinelDraws: 1
+      esperSentinelDraws: 1,
+      esperTaxesPaid: 1,
+      esperTaxesDeclined: 1
     }),
     reportPlayer('Caster Deck', false)
   ]);
@@ -1546,18 +1722,30 @@ function reportGeneratorIncludesTaxDrawMetrics() {
   return report.interactionStackSummary.rhysticStudyDraws === 1
     && report.interactionStackSummary.mysticRemoraDraws === 1
     && report.interactionStackSummary.esperSentinelDraws === 1
+    && report.interactionStackSummary.taxPaymentsPaid === 3
+    && report.interactionStackSummary.taxPaymentsDeclined === 3
     && taxDeck.rhysticStudyTriggers === 1
     && taxDeck.rhysticStudyDraws === 1
+    && taxDeck.rhysticTaxesPaid === 1
+    && taxDeck.rhysticTaxesDeclined === 1
     && taxDeck.mysticRemoraTriggers === 1
     && taxDeck.mysticRemoraDraws === 1
+    && taxDeck.mysticTaxesPaid === 1
+    && taxDeck.mysticTaxesDeclined === 1
     && taxDeck.esperSentinelTriggers === 1
     && taxDeck.esperSentinelDraws === 1
+    && taxDeck.esperTaxesPaid === 1
+    && taxDeck.esperTaxesDeclined === 1
     && text.includes('Rhystic-style draws: 1')
     && text.includes('Mystic-style draws: 1')
     && text.includes('Esper-style draws: 1')
+    && text.includes('Tax payments paid/declined: 3 / 3')
     && text.includes('Rhystic-style triggers/draws: 1 / 1')
+    && text.includes('Rhystic-style taxes paid/declined: 1 / 1')
     && text.includes('Mystic-style triggers/draws: 1 / 1')
-    && text.includes('Esper-style triggers/draws: 1 / 1');
+    && text.includes('Mystic-style taxes paid/declined: 1 / 1')
+    && text.includes('Esper-style triggers/draws: 1 / 1')
+    && text.includes('Esper-style taxes paid/declined: 1 / 1');
 }
 
 function reportGeneratorHandlesNoInteractionMetrics() {
@@ -1574,7 +1762,8 @@ function reportGeneratorHandlesNoInteractionMetrics() {
     && text.includes('Windows opened: 0')
     && text.includes('Rhystic-style draws: 0')
     && text.includes('Mystic-style draws: 0')
-    && text.includes('Esper-style draws: 0');
+    && text.includes('Esper-style draws: 0')
+    && text.includes('Tax payments paid/declined: 0 / 0');
 }
 
 function fixturePlayer(name, profile = {}) {

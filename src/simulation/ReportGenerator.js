@@ -95,10 +95,16 @@ class ReportGenerator {
         nestedCounterplayEvents: 0,
         rhysticStudyTriggers: 0,
         rhysticStudyDraws: 0,
+        rhysticTaxesPaid: 0,
+        rhysticTaxesDeclined: 0,
         mysticRemoraTriggers: 0,
         mysticRemoraDraws: 0,
+        mysticTaxesPaid: 0,
+        mysticTaxesDeclined: 0,
         esperSentinelTriggers: 0,
         esperSentinelDraws: 0,
+        esperTaxesPaid: 0,
+        esperTaxesDeclined: 0,
         heldInteractionTurns: 0,
         boardWipesCast: 0,
         commanderDamageKills: 0,
@@ -223,10 +229,16 @@ class ReportGenerator {
         stats.nestedCounterplayEvents += player.metrics.nestedCounterplayEvents || 0;
         stats.rhysticStudyTriggers += player.metrics.rhysticStudyTriggers || 0;
         stats.rhysticStudyDraws += player.metrics.rhysticStudyDraws || 0;
+        stats.rhysticTaxesPaid += player.metrics.rhysticTaxesPaid || 0;
+        stats.rhysticTaxesDeclined += player.metrics.rhysticTaxesDeclined || 0;
         stats.mysticRemoraTriggers += player.metrics.mysticRemoraTriggers || 0;
         stats.mysticRemoraDraws += player.metrics.mysticRemoraDraws || 0;
+        stats.mysticTaxesPaid += player.metrics.mysticTaxesPaid || 0;
+        stats.mysticTaxesDeclined += player.metrics.mysticTaxesDeclined || 0;
         stats.esperSentinelTriggers += player.metrics.esperSentinelTriggers || 0;
         stats.esperSentinelDraws += player.metrics.esperSentinelDraws || 0;
+        stats.esperTaxesPaid += player.metrics.esperTaxesPaid || 0;
+        stats.esperTaxesDeclined += player.metrics.esperTaxesDeclined || 0;
         stats.heldInteractionTurns += player.metrics.heldInteractionTurns || 0;
         stats.boardWipesCast += player.metrics.boardWipesCast || 0;
         stats.tutorsUsed += player.metrics.tutorsUsed || 0;
@@ -368,10 +380,16 @@ class ReportGenerator {
       nestedCounterplayEvents: stats.nestedCounterplayEvents,
       rhysticStudyTriggers: stats.rhysticStudyTriggers,
       rhysticStudyDraws: stats.rhysticStudyDraws,
+      rhysticTaxesPaid: stats.rhysticTaxesPaid,
+      rhysticTaxesDeclined: stats.rhysticTaxesDeclined,
       mysticRemoraTriggers: stats.mysticRemoraTriggers,
       mysticRemoraDraws: stats.mysticRemoraDraws,
+      mysticTaxesPaid: stats.mysticTaxesPaid,
+      mysticTaxesDeclined: stats.mysticTaxesDeclined,
       esperSentinelTriggers: stats.esperSentinelTriggers,
       esperSentinelDraws: stats.esperSentinelDraws,
+      esperTaxesPaid: stats.esperTaxesPaid,
+      esperTaxesDeclined: stats.esperTaxesDeclined,
       heldInteractionTurns: stats.heldInteractionTurns,
       heldInteractionRate: percent(stats.heldInteractionTurns / Math.max(1, stats.games * 14)),
       boardWipesUsed: stats.boardWipesCast,
@@ -411,6 +429,7 @@ class ReportGenerator {
     lines.push(`  Rhystic-style draws: ${report.interactionStackSummary.rhysticStudyDraws}`);
     lines.push(`  Mystic-style draws: ${report.interactionStackSummary.mysticRemoraDraws}`);
     lines.push(`  Esper-style draws: ${report.interactionStackSummary.esperSentinelDraws}`);
+    lines.push(`  Tax payments paid/declined: ${report.interactionStackSummary.taxPaymentsPaid} / ${report.interactionStackSummary.taxPaymentsDeclined}`);
     lines.push('');
     for (const deck of report.decks) {
       lines.push(`${deck.name}`);
@@ -476,8 +495,11 @@ class ReportGenerator {
       lines.push(`    Priority responses: ${deck.priorityResponses}`);
       lines.push(`    Nested counterplay events: ${deck.nestedCounterplayEvents}`);
       lines.push(`    Rhystic-style triggers/draws: ${deck.rhysticStudyTriggers} / ${deck.rhysticStudyDraws}`);
+      lines.push(`    Rhystic-style taxes paid/declined: ${deck.rhysticTaxesPaid} / ${deck.rhysticTaxesDeclined}`);
       lines.push(`    Mystic-style triggers/draws: ${deck.mysticRemoraTriggers} / ${deck.mysticRemoraDraws}`);
+      lines.push(`    Mystic-style taxes paid/declined: ${deck.mysticTaxesPaid} / ${deck.mysticTaxesDeclined}`);
       lines.push(`    Esper-style triggers/draws: ${deck.esperSentinelTriggers} / ${deck.esperSentinelDraws}`);
+      lines.push(`    Esper-style taxes paid/declined: ${deck.esperTaxesPaid} / ${deck.esperTaxesDeclined}`);
       lines.push('  Sequencing Report:');
       lines.push(`    Tutors cast: ${deck.tutorsUsed}`);
       lines.push(`    Best tutor target: ${deck.mostCommonTutorTarget}`);
@@ -617,6 +639,8 @@ function aggregateInteractionStack(decks) {
     summary.rhysticStudyDraws += deck.rhysticStudyDraws || 0;
     summary.mysticRemoraDraws += deck.mysticRemoraDraws || 0;
     summary.esperSentinelDraws += deck.esperSentinelDraws || 0;
+    summary.taxPaymentsPaid += (deck.rhysticTaxesPaid || 0) + (deck.mysticTaxesPaid || 0) + (deck.esperTaxesPaid || 0);
+    summary.taxPaymentsDeclined += (deck.rhysticTaxesDeclined || 0) + (deck.mysticTaxesDeclined || 0) + (deck.esperTaxesDeclined || 0);
     return summary;
   }, {
     interactionWindowsOpened: 0,
@@ -627,7 +651,9 @@ function aggregateInteractionStack(decks) {
     nestedCounterplayEvents: 0,
     rhysticStudyDraws: 0,
     mysticRemoraDraws: 0,
-    esperSentinelDraws: 0
+    esperSentinelDraws: 0,
+    taxPaymentsPaid: 0,
+    taxPaymentsDeclined: 0
   });
 }
 

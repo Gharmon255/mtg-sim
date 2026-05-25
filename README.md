@@ -208,7 +208,7 @@ During simulation, profiles influence opening hand keeps, tutor targets, combat 
 
 Interaction Windows v1 sits between the heuristic `InteractionEngine` and a future full stack/priority system. Each window records a source player, source card, action type, target when known, impact score, whether it can be countered/removed/protected, the reason it matters, and debug metadata. The model supports spell-cast, activated ability, triggered ability, combat/lethal, combo attempt, and board wipe window types.
 
-Current production simulation opens explicit windows mainly for spell casts that are high-impact, stax, win conditions, or board wipes; combat/lethal attacks; combo attempts; selected TurnEngine draw-step Smothering Tithe-style triggered abilities; selected TurnEngine opponent-cast Rhystic Study, Mystic Remora, and Esper Sentinel-style triggered abilities, including successful commander casts routed through those same gates; and selected UpkeepEngine/AbilityResolver high-impact Monolith untap activations. Those selected abilities may still resolve without stack history when no interaction engine/context is present or when narrow gating does not consider them interaction-relevant. Most activated and triggered abilities still do not use stack timing yet.
+Current production simulation opens explicit windows mainly for spell casts that are high-impact, stax, win conditions, or board wipes; combat/lethal attacks; combo attempts; selected TurnEngine draw-step Smothering Tithe-style triggered abilities; selected TurnEngine opponent-cast Rhystic Study, Mystic Remora, and Esper Sentinel-style triggered abilities, including successful commander casts routed through those same gates; and selected UpkeepEngine/AbilityResolver high-impact Monolith untap activations. Rhystic/Mystic/Esper-style triggers now use deterministic heuristic pay-or-draw decisions after their trigger window resolves, but these are not exact MTG tax/payment rules and do not open another stack window. Those selected abilities may still resolve without stack history when no interaction engine/context is present or when narrow gating does not consider them interaction-relevant. Most activated and triggered abilities still do not use stack timing yet.
 
 For simulator continuity, lethal combat windows remain counterable by default. This is a heuristic abstraction for emergency interaction such as bounce, fog-like effects, free answers, or other broad counterplay; it is not claiming a normal counterspell can counter combat damage under real Magic rules.
 
@@ -285,7 +285,7 @@ Simulation reports include:
 - Average mulligans, risky keeps, no-land and color-screw mulligans.
 - Combo attempts, combo win rate, failed and stopped combo attempts, and average combo attempt turn.
 - Interaction used, counterspells used, board wipes cast, and common tutor targets.
-- Interaction / Stack Summary totals for windows opened, stack objects processed/resolved, stopped attempts, priority responses, one-deep counterplay events when available, and Rhystic/Mystic/Esper-style heuristic draws.
+- Interaction / Stack Summary totals for windows opened, stack objects processed/resolved, stopped attempts, priority responses, one-deep counterplay events when available, and Rhystic/Mystic/Esper-style heuristic draws plus paid/declined tax counts.
 - Win type breakdown and pod balance recommendations.
 
 ## Deck Power Analyzer

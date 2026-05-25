@@ -21,6 +21,7 @@ This document tracks the interaction/stack/priority sprint and the next safe upg
 - Step 7.5: Harden Mystic Remora-style Triggered Windows - Done
 - Step 8: Esper Sentinel-style Opponent Noncreature Cast Triggered Window - Implemented
 - Step 9: Commander-Cast Routing Through Opponent-Cast Trigger Hook - Implemented
+- Step 10: Heuristic Pay-Or-Draw For Rhystic/Mystic/Esper-style Tax Triggers - Implemented
 
 ## Step 4 Status
 
@@ -52,7 +53,7 @@ At Step 6, the first opponent-cast triggered wiring was implemented for the Rhys
 
 ## Step 6.5 Status
 
-Rhystic-style opponent-cast trigger behavior is hardened with regression coverage for stopped original spells, tutor spell casts, and multiple Rhystic-style controllers. Exact tax payment rules remain future work.
+Rhystic-style opponent-cast trigger behavior is hardened with regression coverage for stopped original spells, tutor spell casts, and multiple Rhystic-style controllers. Exact tax payment rules remained future work at this step.
 
 ## Step 7 Status
 
@@ -60,7 +61,7 @@ Mystic Remora-style opponent-cast trigger behavior is implemented through the ex
 
 ## Step 7.5 Status
 
-Mystic Remora-style trigger behavior is hardened with coexistence coverage for Rhystic + Mystic sources, conservative no-type classification, and low-mana-value noncreature casts that trigger Mystic without triggering Rhystic. Commander casts remain a documented future hook.
+Mystic Remora-style trigger behavior is hardened with coexistence coverage for Rhystic + Mystic sources, conservative no-type classification, and low-mana-value noncreature casts that trigger Mystic without triggering Rhystic. Commander casts were still a documented future hook at this step.
 
 ## Step 8 Status
 
@@ -71,6 +72,10 @@ Current opponent-cast production coverage is limited to Rhystic Study-style, Mys
 ## Step 9 Status
 
 Successful commander casts now call the same `TriggeredAbilityEngine.afterOpponentCast` hook used by normal spell casts. Rhystic Study-style triggers can see commander casts that pass the existing impact gate, while Mystic Remora-style and Esper Sentinel-style triggers still use their current noncreature gates. Failed or skipped commander casts do not open opponent-cast trigger windows. Commander timing and all tax/payment rules remain heuristic.
+
+## Step 10 Status
+
+Rhystic Study-style, Mystic Remora-style, and Esper Sentinel-style triggers now run a deterministic heuristic pay-or-draw decision after their interaction window resolves and is not stopped. Paid taxes skip the draw; declined or unavailable payments keep the existing draw benefit. The payment itself does not open another stack or priority window, and exact tax timing/payment rules remain out of scope.
 
 ## Next Target
 

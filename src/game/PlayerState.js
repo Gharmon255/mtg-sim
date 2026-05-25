@@ -161,8 +161,14 @@ class PlayerState {
       treasureTriggers: 0,
       treasuresBySource: {},
       fetchTargetsChosen: {},
+      rhysticTaxesPaid: 0,
+      rhysticTaxesDeclined: 0,
+      mysticTaxesPaid: 0,
+      mysticTaxesDeclined: 0,
       esperSentinelTriggers: 0,
       esperSentinelDraws: 0,
+      esperTaxesPaid: 0,
+      esperTaxesDeclined: 0,
       lossReason: null
     };
   }
