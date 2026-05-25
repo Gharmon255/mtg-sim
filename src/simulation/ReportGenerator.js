@@ -429,7 +429,7 @@ class ReportGenerator {
     lines.push(`  Rhystic-style draws: ${report.interactionStackSummary.rhysticStudyDraws}`);
     lines.push(`  Mystic-style draws: ${report.interactionStackSummary.mysticRemoraDraws}`);
     lines.push(`  Esper-style draws: ${report.interactionStackSummary.esperSentinelDraws}`);
-    lines.push(`  Tax payments paid/declined: ${report.interactionStackSummary.taxPaymentsPaid} / ${report.interactionStackSummary.taxPaymentsDeclined}`);
+    lines.push(`  Tax payments paid/unpaid: ${report.interactionStackSummary.taxPaymentsPaid} / ${report.interactionStackSummary.taxPaymentsDeclined}`);
     lines.push('');
     for (const deck of report.decks) {
       lines.push(`${deck.name}`);
@@ -495,11 +495,11 @@ class ReportGenerator {
       lines.push(`    Priority responses: ${deck.priorityResponses}`);
       lines.push(`    Nested counterplay events: ${deck.nestedCounterplayEvents}`);
       lines.push(`    Rhystic-style triggers/draws: ${deck.rhysticStudyTriggers} / ${deck.rhysticStudyDraws}`);
-      lines.push(`    Rhystic-style taxes paid/declined: ${deck.rhysticTaxesPaid} / ${deck.rhysticTaxesDeclined}`);
+      lines.push(`    Rhystic-style taxes paid/unpaid: ${deck.rhysticTaxesPaid} / ${deck.rhysticTaxesDeclined}`);
       lines.push(`    Mystic-style triggers/draws: ${deck.mysticRemoraTriggers} / ${deck.mysticRemoraDraws}`);
-      lines.push(`    Mystic-style taxes paid/declined: ${deck.mysticTaxesPaid} / ${deck.mysticTaxesDeclined}`);
+      lines.push(`    Mystic-style taxes paid/unpaid: ${deck.mysticTaxesPaid} / ${deck.mysticTaxesDeclined}`);
       lines.push(`    Esper-style triggers/draws: ${deck.esperSentinelTriggers} / ${deck.esperSentinelDraws}`);
-      lines.push(`    Esper-style taxes paid/declined: ${deck.esperTaxesPaid} / ${deck.esperTaxesDeclined}`);
+      lines.push(`    Esper-style taxes paid/unpaid: ${deck.esperTaxesPaid} / ${deck.esperTaxesDeclined}`);
       lines.push('  Sequencing Report:');
       lines.push(`    Tutors cast: ${deck.tutorsUsed}`);
       lines.push(`    Best tutor target: ${deck.mostCommonTutorTarget}`);

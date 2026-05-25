@@ -22,6 +22,7 @@ This document tracks the interaction/stack/priority sprint and the next safe upg
 - Step 8: Esper Sentinel-style Opponent Noncreature Cast Triggered Window - Implemented
 - Step 9: Commander-Cast Routing Through Opponent-Cast Trigger Hook - Implemented
 - Step 10: Heuristic Pay-Or-Draw For Rhystic/Mystic/Esper-style Tax Triggers - Implemented
+- Step 10.5: Harden Heuristic Tax Metrics And Commander-Tax Estimates - Done
 
 ## Step 4 Status
 
@@ -75,7 +76,11 @@ Successful commander casts now call the same `TriggeredAbilityEngine.afterOppone
 
 ## Step 10 Status
 
-Rhystic Study-style, Mystic Remora-style, and Esper Sentinel-style triggers now run a deterministic heuristic pay-or-draw decision after their interaction window resolves and is not stopped. Paid taxes skip the draw; declined or unavailable payments keep the existing draw benefit. The payment itself does not open another stack or priority window, and exact tax timing/payment rules remain out of scope.
+Rhystic Study-style, Mystic Remora-style, and Esper Sentinel-style triggers now run a deterministic heuristic pay-or-draw decision after their interaction window resolves and is not stopped. Paid taxes skip the draw; unpaid heuristic outcomes keep the existing draw benefit. The payment itself does not open another stack or priority window, and exact tax timing/payment rules remain out of scope.
+
+## Step 10.5 Status
+
+Tax metrics now document that "declined" means unpaid by the simulator heuristic, including cannot-pay and reserve-based cases. Commander-cast tax estimates account for the current commander tax when deciding whether the caster can spare mana for Rhystic-style payments, and Esper Sentinel-style tests cover power greater than one. Report text uses "paid/unpaid" wording while preserving the existing internal metric names.
 
 ## Next Target
 

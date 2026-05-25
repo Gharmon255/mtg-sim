@@ -285,7 +285,7 @@ Simulation reports include:
 - Average mulligans, risky keeps, no-land and color-screw mulligans.
 - Combo attempts, combo win rate, failed and stopped combo attempts, and average combo attempt turn.
 - Interaction used, counterspells used, board wipes cast, and common tutor targets.
-- Interaction / Stack Summary totals for windows opened, stack objects processed/resolved, stopped attempts, priority responses, one-deep counterplay events when available, and Rhystic/Mystic/Esper-style heuristic draws plus paid/declined tax counts.
+- Interaction / Stack Summary totals for windows opened, stack objects processed/resolved, stopped attempts, priority responses, one-deep counterplay events when available, and Rhystic/Mystic/Esper-style heuristic draws plus paid/unpaid tax counts.
 - Win type breakdown and pod balance recommendations.
 
 ## Deck Power Analyzer

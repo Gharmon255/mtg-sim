@@ -357,15 +357,17 @@ function decideHeuristicTaxPayment(kind, owner, castingPlayer, castCard, permane
   if (!canPay) return { shouldPay: false, reason: `cannot pay ${config.amount}` };
 
   const available = estimateAvailableMana(castingPlayer);
-  const estimatedPostCast = Math.max(0, available - Number(castCard.manaValue || 0));
+  const commanderTax = Number(options.commanderTax || 0);
+  const estimatedPostCast = Math.max(0, available - Number(castCard.manaValue || 0) - commanderTax);
   const reserve = taxReserve(kind, castingPlayer, castCard, options);
   const shouldPay = estimatedPostCast >= config.amount + reserve;
+  const commanderTaxNote = commanderTax > 0 ? ` after commander tax ${commanderTax}` : '';
   return {
     shouldPay,
     taxCard,
     reason: shouldPay
-      ? `estimated spare mana ${estimatedPostCast} covers tax ${config.amount} with reserve ${reserve}`
-      : `estimated spare mana ${estimatedPostCast} below tax ${config.amount} plus reserve ${reserve}`
+      ? `estimated spare mana ${estimatedPostCast}${commanderTaxNote} covers tax ${config.amount} with reserve ${reserve}`
+      : `estimated spare mana ${estimatedPostCast}${commanderTaxNote} below tax ${config.amount} plus reserve ${reserve}`
   };
 }
 

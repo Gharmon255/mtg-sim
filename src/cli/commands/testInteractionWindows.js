@@ -53,6 +53,7 @@ function testInteractionWindowsCommand() {
     ['Real TurnEngine commander cast routes through opponent-cast hook', realTurnEngineCommanderCastRoutesOpponentCastHook],
     ['Rhystic-style trigger opens from commander cast', rhysticTriggersFromCommanderCast],
     ['Commander-cast Rhystic path uses tax heuristic', commanderCastRhysticTaxHeuristic],
+    ['Commander-cast Rhystic tax estimate includes commander tax', commanderCastRhysticTaxAccountsForCommanderTax],
     ['Mystic and Esper skip creature commander casts', mysticEsperSkipCreatureCommanderCast],
     ['Failed commander cast does not open opponent-cast trigger windows', failedCommanderCastDoesNotOpenOpponentCastTriggers],
     ['Mystic Remora-style trigger opens and resolves on noncreature cast', mysticNonCreatureTriggerResolves],
@@ -69,6 +70,7 @@ function testInteractionWindowsCommand() {
     ['Esper Sentinel-style trigger can be stopped', esperNonCreatureTriggerStopped],
     ['Esper Sentinel-style tax can be paid to skip draw', esperTaxPaidSkipsDraw],
     ['Esper Sentinel-style tax declined allows draw', esperTaxDeclinedAllowsDraw],
+    ['Esper Sentinel-style tax uses power above one', esperTaxUsesPowerAboveOne],
     ['Creature cast does not open Esper Sentinel-style trigger', creatureCastDoesNotOpenEsperTrigger],
     ['No Esper permanent means no Esper Sentinel-style trigger', noEsperMeansNoEsperTrigger],
     ['Ambiguous no-type cast does not open Esper Sentinel-style trigger', ambiguousNoTypeCastDoesNotOpenEsperTrigger],
@@ -1136,6 +1138,31 @@ function commanderCastRhysticTaxHeuristic() {
     && debugIncludes(gameState, 'Commander Caster pays Rhystic Study heuristic tax');
 }
 
+function commanderCastRhysticTaxAccountsForCommanderTax() {
+  const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Commander Caster');
+  const commander = realCard('Ghalta, Primal Hunger', 'Legendary Creature', '{2}{G}{G}', ['creature', 'high-impact']);
+  caster.commandZone.push(commander);
+  caster.commanderCastCounts.set(commander.name, 1);
+  addRealLands(caster, 'Forest', 7);
+  studyPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyPlayer.library.push(realCard('Commander Tax Rhystic Draw', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, studyPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  const cast = turnEngine.tryCastCommander(gameState, caster, { highestThreatOpponent: () => studyPlayer });
+  const triggerWindow = originalHistory(gameState, 'Rhystic Study trigger');
+  return cast === true
+    && triggerWindow
+    && triggerWindow.debug.castActionType === 'cast_commander'
+    && studyPlayer.metrics.rhysticStudyTriggers === 1
+    && !studyPlayer.metrics.rhysticTaxesPaid
+    && studyPlayer.metrics.rhysticTaxesDeclined === 1
+    && studyPlayer.metrics.rhysticStudyDraws === 1
+    && studyPlayer.cardsDrawn === 1
+    && debugIncludes(gameState, 'after commander tax 2 below tax 1 plus reserve 3');
+}
+
 function mysticEsperSkipCreatureCommanderCast() {
   const taxPlayer = realPlayer('Tax Player', { estimatedBracket: 3 });
   const caster = realPlayer('Commander Caster');
@@ -1487,6 +1514,28 @@ function esperTaxDeclinedAllowsDraw() {
     && debugIncludes(gameState, 'Caster does not pay Esper Sentinel heuristic tax');
 }
 
+function esperTaxUsesPowerAboveOne() {
+  const sentinelPlayer = realPlayer('Sentinel Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Caster');
+  const castCard = spell('Ponder', ['draw'], 1);
+  const sentinel = realCard('Esper Sentinel', 'Artifact Creature', '{W}', ['draw', 'esper-sentinel']);
+  sentinel.power = '3';
+  sentinelPlayer.addPermanent(sentinel);
+  sentinelPlayer.library.push(realCard('Drawn From Larger Sentinel', 'Instant', '{W}', []));
+  addRealLands(caster, 'Plains', 4);
+  const gameState = new GameState([caster, sentinelPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  turnEngine.castAction(gameState, caster, { highestThreatOpponent: () => sentinelPlayer }, { type: 'cast_draw', card: castCard }, castCard);
+  return originalHistory(gameState, 'Esper Sentinel trigger')
+    && sentinelPlayer.metrics.esperSentinelTriggers === 1
+    && !sentinelPlayer.metrics.esperTaxesPaid
+    && sentinelPlayer.metrics.esperTaxesDeclined === 1
+    && sentinelPlayer.metrics.esperSentinelDraws === 1
+    && sentinelPlayer.cardsDrawn === 1
+    && debugIncludes(gameState, 'tax 3 plus reserve 2');
+}
+
 function creatureCastDoesNotOpenEsperTrigger() {
   const sentinelPlayer = realPlayer('Sentinel Player', { estimatedBracket: 3 });
   const caster = realPlayer('Caster');
@@ -1739,13 +1788,13 @@ function reportGeneratorIncludesTaxDrawMetrics() {
     && text.includes('Rhystic-style draws: 1')
     && text.includes('Mystic-style draws: 1')
     && text.includes('Esper-style draws: 1')
-    && text.includes('Tax payments paid/declined: 3 / 3')
+    && text.includes('Tax payments paid/unpaid: 3 / 3')
     && text.includes('Rhystic-style triggers/draws: 1 / 1')
-    && text.includes('Rhystic-style taxes paid/declined: 1 / 1')
+    && text.includes('Rhystic-style taxes paid/unpaid: 1 / 1')
     && text.includes('Mystic-style triggers/draws: 1 / 1')
-    && text.includes('Mystic-style taxes paid/declined: 1 / 1')
+    && text.includes('Mystic-style taxes paid/unpaid: 1 / 1')
     && text.includes('Esper-style triggers/draws: 1 / 1')
-    && text.includes('Esper-style taxes paid/declined: 1 / 1');
+    && text.includes('Esper-style taxes paid/unpaid: 1 / 1');
 }
 
 function reportGeneratorHandlesNoInteractionMetrics() {
@@ -1763,7 +1812,7 @@ function reportGeneratorHandlesNoInteractionMetrics() {
     && text.includes('Rhystic-style draws: 0')
     && text.includes('Mystic-style draws: 0')
     && text.includes('Esper-style draws: 0')
-    && text.includes('Tax payments paid/declined: 0 / 0');
+    && text.includes('Tax payments paid/unpaid: 0 / 0');
 }
 
 function fixturePlayer(name, profile = {}) {
