@@ -32,6 +32,8 @@ function testAbilitiesCommand() {
     ['Ancient Tomb pays 2 life when used', ancientTombLifePaid],
     ['Treasures created by Dockside are tracked by source', docksideTreasureSourceTracked],
     ['Smothering Tithe creates treasures over time', smotheringTitheTriggers],
+    ['Smothering Tithe tax can be paid to prevent Treasure', smotheringTitheTaxPaidSkipsTreasure],
+    ['Smothering Tithe unpaid tax creates Treasure', smotheringTitheTaxUnpaidCreatesTreasure],
     ['Smothering Tithe trigger opens and resolves interaction window', smotheringTitheWindowResolves],
     ['Smothering Tithe trigger can be stopped through interaction window', smotheringTitheWindowStopped],
     ['Basalt Monolith untap ability opens and resolves interaction window', basaltUntapWindowResolves],
@@ -230,7 +232,55 @@ function smotheringTitheTriggers() {
   const opponent = testPlayer(['U']);
   owner.addPermanent(card('Smothering Tithe', 'Enchantment', '{3}{W}', ['ramp', 'treasure']));
   new TriggeredAbilityEngine().afterDraw(mockGame([owner, opponent]), opponent, 2);
-  return owner.metrics.treasureTriggers === 2 && owner.tokenManager.treasureCount() === 2;
+  return owner.metrics.smotheringTitheTriggers === 2
+    && owner.metrics.smotheringTitheTaxesUnpaid === 2
+    && owner.metrics.smotheringTitheTreasuresCreated === 2
+    && owner.metrics.treasureTriggers === 2
+    && owner.tokenManager.treasureCount() === 2;
+}
+
+function smotheringTitheTaxPaidSkipsTreasure() {
+  const owner = testPlayer(['W'], { estimatedBracket: 3 });
+  owner.threatScore = 10;
+  const opponent = testPlayer(['U']);
+  addLands(opponent, 'Island', 2);
+  owner.addPermanent(card('Smothering Tithe', 'Enchantment', '{3}{W}', ['ramp', 'treasure', 'high-impact']));
+  const gameState = new GameState([owner, opponent], { debug: true });
+  gameState.turn = 3;
+  new TriggeredAbilityEngine({ interactionEngine: new InteractionEngine() }).afterDraw(gameState, opponent, 1);
+  const history = originalHistory(gameState);
+  return owner.metrics.smotheringTitheTriggers === 1
+    && owner.metrics.smotheringTitheTaxesPaid === 1
+    && !owner.metrics.smotheringTitheTaxesUnpaid
+    && !owner.metrics.treasureTriggers
+    && owner.tokenManager.treasureCount() === 0
+    && history
+    && gameState.stackManager.history.length === 1
+    && !history.stopped
+    && debugIncludes(gameState, 'pays Smothering Tithe heuristic tax')
+    && !debugIncludes(gameState, 'Smothering Tithe created');
+}
+
+function smotheringTitheTaxUnpaidCreatesTreasure() {
+  const owner = testPlayer(['W'], { estimatedBracket: 3 });
+  const opponent = testPlayer(['U']);
+  owner.addPermanent(card('Smothering Tithe', 'Enchantment', '{3}{W}', ['ramp', 'treasure', 'high-impact']));
+  const gameState = new GameState([owner, opponent], { debug: true });
+  gameState.turn = 3;
+  new TriggeredAbilityEngine({ interactionEngine: new InteractionEngine() }).afterDraw(gameState, opponent, 1);
+  const history = originalHistory(gameState);
+  return owner.metrics.smotheringTitheTriggers === 1
+    && !owner.metrics.smotheringTitheTaxesPaid
+    && owner.metrics.smotheringTitheTaxesUnpaid === 1
+    && owner.metrics.smotheringTitheTreasuresCreated === 1
+    && owner.metrics.treasureTriggers === 1
+    && owner.metrics.treasuresBySource['Smothering Tithe'] === 1
+    && owner.tokenManager.treasureCount() === 1
+    && history
+    && gameState.stackManager.history.length === 1
+    && !history.stopped
+    && debugIncludes(gameState, 'does not pay Smothering Tithe heuristic tax')
+    && debugIncludes(gameState, 'Smothering Tithe created 1 Treasure');
 }
 
 function smotheringTitheWindowResolves() {
@@ -241,7 +291,10 @@ function smotheringTitheWindowResolves() {
   gameState.turn = 3;
   new TriggeredAbilityEngine({ interactionEngine: new InteractionEngine() }).afterDraw(gameState, opponent, 1);
   const history = gameState.stackManager.history[0];
-  return owner.metrics.treasureTriggers === 1
+  return owner.metrics.smotheringTitheTriggers === 1
+    && owner.metrics.smotheringTitheTaxesUnpaid === 1
+    && owner.metrics.smotheringTitheTreasuresCreated === 1
+    && owner.metrics.treasureTriggers === 1
     && owner.tokenManager.treasureCount() === 1
     && owner.metrics.interactionWindowsOpened === 1
     && history
@@ -262,7 +315,11 @@ function smotheringTitheWindowStopped() {
   new TriggeredAbilityEngine({ interactionEngine: new InteractionEngine() }).afterDraw(gameState, opponent, 1);
   const original = originalHistory(gameState);
   const response = responseHistory(gameState);
-  return !owner.metrics.treasureTriggers
+  return !owner.metrics.smotheringTitheTriggers
+    && !owner.metrics.smotheringTitheTaxesPaid
+    && !owner.metrics.smotheringTitheTaxesUnpaid
+    && !owner.metrics.smotheringTitheTreasuresCreated
+    && !owner.metrics.treasureTriggers
     && owner.tokenManager.treasureCount() === 0
     && original
     && response

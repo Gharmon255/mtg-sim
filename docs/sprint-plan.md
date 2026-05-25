@@ -23,6 +23,7 @@ This document tracks the interaction/stack/priority sprint and the next safe upg
 - Step 9: Commander-Cast Routing Through Opponent-Cast Trigger Hook - Implemented
 - Step 10: Heuristic Pay-Or-Draw For Rhystic/Mystic/Esper-style Tax Triggers - Implemented
 - Step 10.5: Harden Heuristic Tax Metrics And Commander-Tax Estimates - Done
+- Step 11: Smothering Tithe-style Heuristic Pay-Or-Treasure On Opponent Draw - Implemented
 
 ## Step 4 Status
 
@@ -81,6 +82,10 @@ Rhystic Study-style, Mystic Remora-style, and Esper Sentinel-style triggers now 
 ## Step 10.5 Status
 
 Tax metrics now document that "declined" means unpaid by the simulator heuristic, including cannot-pay and reserve-based cases. Commander-cast tax estimates account for the current commander tax when deciding whether the caster can spare mana for Rhystic-style payments, and Esper Sentinel-style tests cover power greater than one. Report text uses "paid/unpaid" wording while preserving the existing internal metric names.
+
+## Step 11 Status
+
+Smothering Tithe-style opponent draw triggers now run a deterministic heuristic pay-or-treasure decision after their interaction window resolves and is not stopped. Paid taxes skip Treasure creation; unpaid heuristic outcomes create Treasure through the existing TokenManager path. The payment itself does not open another stack or priority window, and exact MTG payment timing remains out of scope.
 
 ## Next Target
 

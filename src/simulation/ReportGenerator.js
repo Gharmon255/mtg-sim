@@ -77,6 +77,10 @@ class ReportGenerator {
         badLedActivationsAvoided: 0,
         treasureTriggers: 0,
         treasuresBySource: new Map(),
+        smotheringTitheTriggers: 0,
+        smotheringTitheTaxesPaid: 0,
+        smotheringTitheTaxesUnpaid: 0,
+        smotheringTitheTreasuresCreated: 0,
         comboAttempts: 0,
         comboWins: 0,
         failedComboAttempts: 0,
@@ -205,6 +209,10 @@ class ReportGenerator {
         stats.ledActivations += player.metrics.ledActivations || 0;
         stats.badLedActivationsAvoided += player.metrics.badLedActivationsAvoided || 0;
         stats.treasureTriggers += player.metrics.treasureTriggers || 0;
+        stats.smotheringTitheTriggers += player.metrics.smotheringTitheTriggers || 0;
+        stats.smotheringTitheTaxesPaid += player.metrics.smotheringTitheTaxesPaid || 0;
+        stats.smotheringTitheTaxesUnpaid += player.metrics.smotheringTitheTaxesUnpaid || 0;
+        stats.smotheringTitheTreasuresCreated += player.metrics.smotheringTitheTreasuresCreated || 0;
         for (const [source, count] of Object.entries(player.metrics.treasuresBySource || {})) {
           stats.treasuresBySource.set(source, (stats.treasuresBySource.get(source) || 0) + count);
         }
@@ -360,6 +368,10 @@ class ReportGenerator {
       badLedActivationsAvoided: stats.badLedActivationsAvoided,
       treasureTriggers: stats.treasureTriggers,
       treasuresCreatedBySource: Object.fromEntries(stats.treasuresBySource.entries()),
+      smotheringTitheTriggers: stats.smotheringTitheTriggers,
+      smotheringTitheTaxesPaid: stats.smotheringTitheTaxesPaid,
+      smotheringTitheTaxesUnpaid: stats.smotheringTitheTaxesUnpaid,
+      smotheringTitheTreasuresCreated: stats.smotheringTitheTreasuresCreated,
       comboAttempts: stats.comboAttempts,
       comboWinRate: percent(stats.comboAttempts ? stats.comboWins / stats.comboAttempts : 0),
       averageComboAttemptTurn: average(stats.comboAttemptTurns),
@@ -429,6 +441,7 @@ class ReportGenerator {
     lines.push(`  Rhystic-style draws: ${report.interactionStackSummary.rhysticStudyDraws}`);
     lines.push(`  Mystic-style draws: ${report.interactionStackSummary.mysticRemoraDraws}`);
     lines.push(`  Esper-style draws: ${report.interactionStackSummary.esperSentinelDraws}`);
+    lines.push(`  Smothering Tithe treasures: ${report.interactionStackSummary.smotheringTitheTreasuresCreated}`);
     lines.push(`  Tax payments paid/unpaid: ${report.interactionStackSummary.taxPaymentsPaid} / ${report.interactionStackSummary.taxPaymentsDeclined}`);
     lines.push('');
     for (const deck of report.decks) {
@@ -476,6 +489,8 @@ class ReportGenerator {
       lines.push(`    LED activations / bad LED activations avoided: ${deck.ledActivations} / ${deck.badLedActivationsAvoided}`);
       lines.push(`    Bad activations avoided: ${deck.badActivationsAvoided}`);
       lines.push(`    Treasure triggers: ${deck.treasureTriggers}`);
+      lines.push(`    Smothering Tithe triggers / Treasures: ${deck.smotheringTitheTriggers} / ${deck.smotheringTitheTreasuresCreated}`);
+      lines.push(`    Smothering Tithe taxes paid/unpaid: ${deck.smotheringTitheTaxesPaid} / ${deck.smotheringTitheTaxesUnpaid}`);
       if (Object.keys(deck.treasuresCreatedBySource || {}).length) {
         lines.push(`    Treasures by source: ${formatBreakdown(deck.treasuresCreatedBySource)}`);
       }
@@ -639,8 +654,9 @@ function aggregateInteractionStack(decks) {
     summary.rhysticStudyDraws += deck.rhysticStudyDraws || 0;
     summary.mysticRemoraDraws += deck.mysticRemoraDraws || 0;
     summary.esperSentinelDraws += deck.esperSentinelDraws || 0;
-    summary.taxPaymentsPaid += (deck.rhysticTaxesPaid || 0) + (deck.mysticTaxesPaid || 0) + (deck.esperTaxesPaid || 0);
-    summary.taxPaymentsDeclined += (deck.rhysticTaxesDeclined || 0) + (deck.mysticTaxesDeclined || 0) + (deck.esperTaxesDeclined || 0);
+    summary.smotheringTitheTreasuresCreated += deck.smotheringTitheTreasuresCreated || 0;
+    summary.taxPaymentsPaid += (deck.rhysticTaxesPaid || 0) + (deck.mysticTaxesPaid || 0) + (deck.esperTaxesPaid || 0) + (deck.smotheringTitheTaxesPaid || 0);
+    summary.taxPaymentsDeclined += (deck.rhysticTaxesDeclined || 0) + (deck.mysticTaxesDeclined || 0) + (deck.esperTaxesDeclined || 0) + (deck.smotheringTitheTaxesUnpaid || 0);
     return summary;
   }, {
     interactionWindowsOpened: 0,
@@ -652,6 +668,7 @@ function aggregateInteractionStack(decks) {
     rhysticStudyDraws: 0,
     mysticRemoraDraws: 0,
     esperSentinelDraws: 0,
+    smotheringTitheTreasuresCreated: 0,
     taxPaymentsPaid: 0,
     taxPaymentsDeclined: 0
   });

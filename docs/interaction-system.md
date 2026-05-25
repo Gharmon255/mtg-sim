@@ -121,7 +121,7 @@ Production simulation opens explicit windows mainly for:
 
 Step 5 adds narrow production wiring for:
 
-- `TurnEngine` draw-step production into `TriggeredAbilityEngine` Smothering Tithe-style opponent draw triggers. If the trigger is stopped, the Treasure effect is skipped; if no one responds, the draw still happened and Treasures are created.
+- `TurnEngine` draw-step production into `TriggeredAbilityEngine` Smothering Tithe-style opponent draw triggers. If the trigger is stopped, the tax payment is not asked and the Treasure effect is skipped; if no one responds, the draw still happened and the drawing player makes a deterministic heuristic pay-2 decision before Treasures are created.
 - `UpkeepEngine` / `AbilityResolver` production into high-impact Monolith untap activations when they look combo-relevant. If the activation is stopped, costs are not paid and the ability effect is skipped.
 
 Smothering Tithe-style triggered windows currently open only when the production path provides enough interaction context:
@@ -133,9 +133,11 @@ Smothering Tithe-style triggered windows currently open only when the production
 
 This is intentional Step 5 narrow wiring. Not every draw-tax trigger opens a stack window yet; future work can broaden trigger coverage one production path at a time.
 
+Step 11 adds heuristic pay-or-treasure behavior for this Smothering Tithe-style path after the trigger window resolves and is not stopped. Paid taxes create no Treasure; unpaid heuristic outcomes create Treasure through the existing `TokenManager` path. The payment itself does not create a stack object or priority window, and this is not exact MTG payment timing.
+
 ## Opponent-Cast Triggered Wiring v1
 
-Steps 6 through 10 add narrow opponent-cast triggered paths:
+Steps 6 through 10.5 add narrow opponent-cast triggered paths:
 
 - `TurnEngine.castAction` notifies `TriggeredAbilityEngine.afterOpponentCast` after a spell has successfully resolved through the simulator's cast flow.
 - `TurnEngine.tryCastCommander` also notifies `TriggeredAbilityEngine.afterOpponentCast` after a commander is successfully cast through the commander-cast path. Failed or skipped commander casts do not open opponent-cast trigger windows.
@@ -165,7 +167,7 @@ Step 10.5 clarifies that internal `rhysticTaxesDeclined`, `mysticTaxesDeclined`,
 
 This does not implement exact Rhystic Study, Mystic Remora, or Esper Sentinel tax payment rules yet. Opponents do not currently make full rules-accurate payment choices, and Esper Sentinel power/payment may still be simplified when exact power is not modeled. The simulator only models the interaction-window opportunity plus a deterministic post-resolution payment heuristic around the draw trigger. Mystic Remora cumulative upkeep is also out of scope for this path. Low-impact casts currently do not open an extra Rhystic stack window, and not every draw-tax-style trigger is wired. Future work should broaden this one production path at a time.
 
-This does not mean every triggered or activated ability uses stack timing. Smothering Tithe/Rhystic/Mystic/Esper-style triggers may resolve without a stack window when no interaction engine/context is present or when the current narrow gating does not consider the trigger interaction-relevant. Likewise, some Grim Monolith / Mana Vault-style upkeep untap/payment paths may resolve without an interaction window by heuristic design. Steps 5 through 10 only prove selected production routes can use the same `InteractionWindow -> StackObject -> PriorityManager -> optional one-deep counterplay -> history` path.
+This does not mean every triggered or activated ability uses stack timing. Smothering Tithe/Rhystic/Mystic/Esper-style triggers may resolve without a stack window when no interaction engine/context is present or when the current narrow gating does not consider the trigger interaction-relevant. Likewise, some Grim Monolith / Mana Vault-style upkeep untap/payment paths may resolve without an interaction window by heuristic design. Steps 5 through 11 only prove selected production routes can use the same `InteractionWindow -> StackObject -> PriorityManager -> optional one-deep counterplay -> history` path.
 
 ## Remaining Limits
 

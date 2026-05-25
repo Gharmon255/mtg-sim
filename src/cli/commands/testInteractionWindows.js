@@ -1761,7 +1761,11 @@ function reportGeneratorIncludesTaxDrawMetrics() {
       esperSentinelTriggers: 1,
       esperSentinelDraws: 1,
       esperTaxesPaid: 1,
-      esperTaxesDeclined: 1
+      esperTaxesDeclined: 1,
+      smotheringTitheTriggers: 2,
+      smotheringTitheTaxesPaid: 1,
+      smotheringTitheTaxesUnpaid: 1,
+      smotheringTitheTreasuresCreated: 1
     }),
     reportPlayer('Caster Deck', false)
   ]);
@@ -1771,8 +1775,9 @@ function reportGeneratorIncludesTaxDrawMetrics() {
   return report.interactionStackSummary.rhysticStudyDraws === 1
     && report.interactionStackSummary.mysticRemoraDraws === 1
     && report.interactionStackSummary.esperSentinelDraws === 1
-    && report.interactionStackSummary.taxPaymentsPaid === 3
-    && report.interactionStackSummary.taxPaymentsDeclined === 3
+    && report.interactionStackSummary.smotheringTitheTreasuresCreated === 1
+    && report.interactionStackSummary.taxPaymentsPaid === 4
+    && report.interactionStackSummary.taxPaymentsDeclined === 4
     && taxDeck.rhysticStudyTriggers === 1
     && taxDeck.rhysticStudyDraws === 1
     && taxDeck.rhysticTaxesPaid === 1
@@ -1785,16 +1790,23 @@ function reportGeneratorIncludesTaxDrawMetrics() {
     && taxDeck.esperSentinelDraws === 1
     && taxDeck.esperTaxesPaid === 1
     && taxDeck.esperTaxesDeclined === 1
+    && taxDeck.smotheringTitheTriggers === 2
+    && taxDeck.smotheringTitheTaxesPaid === 1
+    && taxDeck.smotheringTitheTaxesUnpaid === 1
+    && taxDeck.smotheringTitheTreasuresCreated === 1
     && text.includes('Rhystic-style draws: 1')
     && text.includes('Mystic-style draws: 1')
     && text.includes('Esper-style draws: 1')
-    && text.includes('Tax payments paid/unpaid: 3 / 3')
+    && text.includes('Smothering Tithe treasures: 1')
+    && text.includes('Tax payments paid/unpaid: 4 / 4')
     && text.includes('Rhystic-style triggers/draws: 1 / 1')
     && text.includes('Rhystic-style taxes paid/unpaid: 1 / 1')
     && text.includes('Mystic-style triggers/draws: 1 / 1')
     && text.includes('Mystic-style taxes paid/unpaid: 1 / 1')
     && text.includes('Esper-style triggers/draws: 1 / 1')
-    && text.includes('Esper-style taxes paid/unpaid: 1 / 1');
+    && text.includes('Esper-style taxes paid/unpaid: 1 / 1')
+    && text.includes('Smothering Tithe triggers / Treasures: 2 / 1')
+    && text.includes('Smothering Tithe taxes paid/unpaid: 1 / 1');
 }
 
 function reportGeneratorHandlesNoInteractionMetrics() {
@@ -1812,6 +1824,7 @@ function reportGeneratorHandlesNoInteractionMetrics() {
     && text.includes('Rhystic-style draws: 0')
     && text.includes('Mystic-style draws: 0')
     && text.includes('Esper-style draws: 0')
+    && text.includes('Smothering Tithe treasures: 0')
     && text.includes('Tax payments paid/unpaid: 0 / 0');
 }
 

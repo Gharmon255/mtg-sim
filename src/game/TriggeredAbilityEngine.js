@@ -36,34 +36,27 @@ class TriggeredAbilityEngine {
   }
 
   triggerSmotheringTithe(gameState, owner, drawingPlayer, count) {
-    let created = 0;
-    for (let index = 0; index < count; index += 1) {
-      if (shouldPayForTithe(owner, drawingPlayer)) continue;
-      created += 1;
-    }
-    if (created > 0 && this.interactionEngine && shouldOpenSmotheringTitheWindow(owner, drawingPlayer, created)) {
+    const triggerCount = Math.max(0, Number(count || 0));
+    if (!triggerCount) return;
+    if (this.interactionEngine && shouldOpenSmotheringTitheWindow(owner, drawingPlayer, triggerCount)) {
       const stopped = this.interactionEngine.attemptToStop(gameState, owner, createInteractionWindow(owner, {
         windowType: WINDOW_TYPES.TRIGGERED_ABILITY,
         actionType: ACTION_TYPES.HIGH_IMPACT,
         label: 'Smothering Tithe trigger',
         sourceCard: findPermanentCard(owner, 'Smothering Tithe'),
         targetPlayer: drawingPlayer,
-        impactScore: Math.min(95, 70 + created * 8),
+        impactScore: Math.min(95, 70 + triggerCount * 8),
         canBeCountered: true,
         canBeRemoved: true,
         canBeProtected: true,
-        reason: `${drawingPlayer.name} drew ${count}; Smothering Tithe may create ${created} Treasure`
+        reason: `${drawingPlayer.name} drew ${count}; Smothering Tithe may create up to ${triggerCount} Treasure`
       }));
       if (stopped.stopped) {
-        gameState.recordDebug && gameState.recordDebug(`Smothering Tithe trigger was stopped before creating ${created} Treasure.`);
+        gameState.recordDebug && gameState.recordDebug(`Smothering Tithe trigger was stopped before asking for payment or creating Treasure.`);
         return;
       }
     }
-    if (created > 0) {
-      owner.createTreasures(created, 'Smothering Tithe');
-      owner.metrics.treasureTriggers = (owner.metrics.treasureTriggers || 0) + created;
-      gameState.recordDebug && gameState.recordDebug(`Smothering Tithe created ${created} Treasure for ${owner.name}.`);
-    }
+    resolveTitheTaxThenTreasures(gameState, owner, drawingPlayer, triggerCount);
   }
 
   triggerRhysticStudy(gameState, owner, castingPlayer, castCard, permanent, options = {}) {
@@ -284,13 +277,6 @@ function esperSentinelTurnKey(gameState, castingPlayer) {
   return `${gameTurn}:${playerTurn}:${playerId}`;
 }
 
-function shouldPayForTithe(owner, drawingPlayer) {
-  const profile = drawingPlayer.strategyProfile || {};
-  if (drawingPlayer.availableMana < 2) return false;
-  if ((owner.threatScore || 0) > (drawingPlayer.threatScore || 0) + 5) return true;
-  return profile.primaryArchetype === 'control' && drawingPlayer.availableMana >= 4;
-}
-
 function resolveTaxThenDraw(gameState, kind, owner, castingPlayer, castCard, permanent, options = {}) {
   const config = taxConfig(kind, permanent);
   owner.metrics[config.triggerMetric] = (owner.metrics[config.triggerMetric] || 0) + 1;
@@ -311,6 +297,29 @@ function resolveTaxThenDraw(gameState, kind, owner, castingPlayer, castCard, per
     gameState.recordDebug && gameState.recordDebug(`${config.label} drew ${drawn} card for ${owner.name}.`);
   } else {
     gameState.recordDebug && gameState.recordDebug(`${config.label} resolved for ${owner.name}, but no card was available to draw.`);
+  }
+}
+
+function resolveTitheTaxThenTreasures(gameState, owner, drawingPlayer, count) {
+  const config = smotheringTitheTaxConfig();
+  let created = 0;
+  for (let index = 0; index < count; index += 1) {
+    owner.metrics.smotheringTitheTriggers = (owner.metrics.smotheringTitheTriggers || 0) + 1;
+    const decision = decideSmotheringTitheTaxPayment(owner, drawingPlayer, config);
+    if (decision.shouldPay && payHeuristicTax(drawingPlayer, config, decision)) {
+      owner.metrics.smotheringTitheTaxesPaid = (owner.metrics.smotheringTitheTaxesPaid || 0) + 1;
+      gameState.recordDebug && gameState.recordDebug(`${drawingPlayer.name} pays ${config.label} heuristic tax (${decision.reason}); ${owner.name} creates no Treasure.`);
+      continue;
+    }
+    owner.metrics.smotheringTitheTaxesUnpaid = (owner.metrics.smotheringTitheTaxesUnpaid || 0) + 1;
+    created += 1;
+    gameState.recordDebug && gameState.recordDebug(`${drawingPlayer.name} does not pay ${config.label} heuristic tax (${decision.reason}); ${owner.name} may create Treasure.`);
+  }
+  if (created > 0) {
+    owner.createTreasures(created, 'Smothering Tithe');
+    owner.metrics.treasureTriggers = (owner.metrics.treasureTriggers || 0) + created;
+    owner.metrics.smotheringTitheTreasuresCreated = (owner.metrics.smotheringTitheTreasuresCreated || 0) + created;
+    gameState.recordDebug && gameState.recordDebug(`Smothering Tithe created ${created} Treasure for ${owner.name}.`);
   }
 }
 
@@ -345,9 +354,39 @@ function taxConfig(kind, permanent) {
   };
 }
 
+function smotheringTitheTaxConfig() {
+  return {
+    label: 'Smothering Tithe',
+    amount: 2
+  };
+}
+
 function esperTaxAmount(permanent) {
   const raw = Number((permanent && (permanent.power || (permanent.card || {}).power)) || 1);
   return Number.isFinite(raw) && raw > 0 ? Math.max(1, Math.floor(raw)) : 1;
+}
+
+function decideSmotheringTitheTaxPayment(owner, drawingPlayer, config) {
+  if (!owner || !drawingPlayer) return { shouldPay: false, reason: 'missing payment context' };
+  const taxCard = taxPaymentCard(config);
+  const canPay = canPayHeuristicTax(drawingPlayer, taxCard);
+  if (!canPay) return { shouldPay: false, reason: `cannot pay ${config.amount}` };
+
+  const available = estimateAvailableMana(drawingPlayer);
+  const profile = drawingPlayer.strategyProfile || {};
+  const ownerPressure = (owner.threatScore || 0) > (drawingPlayer.threatScore || 0) + 5;
+  const paymentPriority = ownerPressure
+    || profile.primaryArchetype === 'control'
+    || (profile.estimatedBracket || 0) >= 4;
+  const reserve = ownerPressure || profile.primaryArchetype === 'control' ? 0 : 1;
+  const shouldPay = paymentPriority && available >= config.amount + reserve;
+  return {
+    shouldPay,
+    taxCard,
+    reason: shouldPay
+      ? `available mana ${available} covers tax ${config.amount} with reserve ${reserve}`
+      : `available mana ${available} below priority/reserve threshold for tax ${config.amount}`
+  };
 }
 
 function decideHeuristicTaxPayment(kind, owner, castingPlayer, castCard, permanent, options, config) {
