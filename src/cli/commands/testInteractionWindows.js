@@ -47,6 +47,10 @@ function testInteractionWindowsCommand() {
     ['Stopped original spell does not open Rhystic-style trigger', stoppedOriginalSpellDoesNotOpenRhysticTrigger],
     ['Tutor spell cast can open Rhystic-style trigger window', tutorCastCanOpenRhysticTrigger],
     ['Multiple Rhystic-style controllers open sequential trigger windows', multipleRhysticControllersOpenSequentialWindows],
+    ['Real TurnEngine commander cast routes through opponent-cast hook', realTurnEngineCommanderCastRoutesOpponentCastHook],
+    ['Rhystic-style trigger opens from commander cast', rhysticTriggersFromCommanderCast],
+    ['Mystic and Esper skip creature commander casts', mysticEsperSkipCreatureCommanderCast],
+    ['Failed commander cast does not open opponent-cast trigger windows', failedCommanderCastDoesNotOpenOpponentCastTriggers],
     ['Mystic Remora-style trigger opens and resolves on noncreature cast', mysticNonCreatureTriggerResolves],
     ['Mystic Remora-style trigger can be stopped', mysticNonCreatureTriggerStopped],
     ['Creature cast does not open Mystic Remora-style trigger', creatureCastDoesNotOpenMysticTrigger],
@@ -986,6 +990,102 @@ function multipleRhysticControllersOpenSequentialWindows() {
     && studyA.metrics.interactionWindowsOpened === 1
     && studyB.metrics.interactionWindowsOpened === 1
     && caster.metrics.interactionWindowsOpened === 1;
+}
+
+function realTurnEngineCommanderCastRoutesOpponentCastHook() {
+  const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Commander Caster');
+  const commander = realCard('Ghalta, Primal Hunger', 'Legendary Creature', '{2}{G}{G}', ['creature', 'high-impact']);
+  caster.commandZone.push(commander);
+  addRealLands(caster, 'Forest', 4);
+  studyPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyPlayer.library.push(realCard('Commander Hook Draw', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, studyPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine(scriptedDecisionEngine({ type: 'cast_commander', card: commander }));
+  turnEngine.takeTurn(gameState, caster, { highestThreatOpponent: () => studyPlayer });
+  const triggerWindow = originalHistory(gameState, 'Rhystic Study trigger');
+  return triggerWindow
+    && triggerWindow.windowType === WINDOW_TYPES.TRIGGERED_ABILITY
+    && triggerWindow.debug.castCard === 'Ghalta, Primal Hunger'
+    && triggerWindow.debug.castActionType === 'cast_commander'
+    && triggerWindow.priorityResult.reason === 'all_players_passed'
+    && studyPlayer.cardsDrawn === 1
+    && studyPlayer.metrics.rhysticStudyDraws === 1
+    && caster.commanderPermanentNames.has('Ghalta, Primal Hunger')
+    && debugIncludes(gameState, 'Rhystic Study drew 1 card for Study Player');
+}
+
+function rhysticTriggersFromCommanderCast() {
+  const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Commander Caster');
+  const commander = realCard('Atraxa, Praetors\' Voice', 'Legendary Creature', '{1}{G}{W}{U}', ['creature']);
+  caster.commandZone.push(commander);
+  addRealLands(caster, 'Forest', 2);
+  addRealLands(caster, 'Plains', 1);
+  addRealLands(caster, 'Island', 1);
+  studyPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyPlayer.library.push(realCard('Commander Rhystic Draw', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, studyPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  const cast = turnEngine.tryCastCommander(gameState, caster, { highestThreatOpponent: () => studyPlayer });
+  const triggerWindow = originalHistory(gameState, 'Rhystic Study trigger');
+  return cast === true
+    && triggerWindow
+    && triggerWindow.debug.castActionType === 'cast_commander'
+    && triggerWindow.debug.castCard === 'Atraxa, Praetors\' Voice'
+    && studyPlayer.cardsDrawn === 1
+    && studyPlayer.hand.some((card) => card.name === 'Commander Rhystic Draw')
+    && studyPlayer.metrics.interactionWindowsOpened === 1
+    && !originalHistory(gameState, 'Mystic Remora trigger')
+    && !originalHistory(gameState, 'Esper Sentinel trigger');
+}
+
+function mysticEsperSkipCreatureCommanderCast() {
+  const taxPlayer = realPlayer('Tax Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Commander Caster');
+  const commander = realCard('Ghalta, Primal Hunger', 'Legendary Creature', '{2}{G}{G}', ['creature', 'high-impact']);
+  caster.commandZone.push(commander);
+  addRealLands(caster, 'Forest', 4);
+  taxPlayer.addPermanent(realCard('Mystic Remora', 'Enchantment', '{U}', ['draw', 'high-impact']));
+  taxPlayer.addPermanent(realCard('Esper Sentinel', 'Artifact Creature', '{W}', ['draw', 'esper-sentinel']));
+  taxPlayer.library.push(realCard('Should Not Draw', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, taxPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  const cast = turnEngine.tryCastCommander(gameState, caster, { highestThreatOpponent: () => taxPlayer });
+  return cast === true
+    && !originalHistory(gameState, 'Mystic Remora trigger')
+    && !originalHistory(gameState, 'Esper Sentinel trigger')
+    && gameState.stackManager.history.length === 0
+    && taxPlayer.cardsDrawn === 0
+    && !taxPlayer.metrics.mysticRemoraDraws
+    && !taxPlayer.metrics.esperSentinelDraws
+    && !taxPlayer.metrics.interactionWindowsOpened;
+}
+
+function failedCommanderCastDoesNotOpenOpponentCastTriggers() {
+  const studyPlayer = realPlayer('Study Player', { estimatedBracket: 3 });
+  const caster = realPlayer('Commander Caster');
+  const commander = realCard('Ghalta, Primal Hunger', 'Legendary Creature', '{2}{G}{G}', ['creature', 'high-impact']);
+  caster.commandZone.push(commander);
+  studyPlayer.addPermanent(realCard('Rhystic Study', 'Enchantment', '{2}{U}', ['draw', 'high-impact']));
+  studyPlayer.addPermanent(realCard('Mystic Remora', 'Enchantment', '{U}', ['draw', 'high-impact']));
+  studyPlayer.addPermanent(realCard('Esper Sentinel', 'Artifact Creature', '{W}', ['draw', 'esper-sentinel']));
+  studyPlayer.library.push(realCard('Should Not Draw', 'Instant', '{U}', []));
+  const gameState = new GameState([caster, studyPlayer], { debug: true });
+  gameState.turn = 5;
+  const turnEngine = minimalTurnEngine();
+  const cast = turnEngine.tryCastCommander(gameState, caster, { highestThreatOpponent: () => studyPlayer });
+  return cast !== true
+    && gameState.stackManager.history.length === 0
+    && studyPlayer.cardsDrawn === 0
+    && !studyPlayer.metrics.rhysticStudyDraws
+    && !studyPlayer.metrics.mysticRemoraDraws
+    && !studyPlayer.metrics.esperSentinelDraws
+    && !studyPlayer.metrics.interactionWindowsOpened
+    && !caster.commanderPermanentNames.has('Ghalta, Primal Hunger');
 }
 
 function mysticNonCreatureTriggerResolves() {

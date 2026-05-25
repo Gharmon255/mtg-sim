@@ -213,6 +213,12 @@ class TurnEngine {
     recordManaPaymentDebug(gameState, player, commander);
     player.commanderCombatPower.set(commander.name, estimateCommanderCombatPower(commander));
     gameState.record(`${player.name} casts commander ${commander.name}.`);
+    this.triggeredAbilityEngine.afterOpponentCast(gameState, player, commander, {
+      action: { type: 'cast_commander', card: commander },
+      targeting,
+      castSource: 'commander',
+      commanderTax: tax
+    });
     return true;
   }
 

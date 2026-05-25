@@ -135,9 +135,10 @@ This is intentional Step 5 narrow wiring. Not every draw-tax trigger opens a sta
 
 ## Opponent-Cast Triggered Wiring v1
 
-Steps 6 through 8 add narrow opponent-cast triggered paths:
+Steps 6 through 9 add narrow opponent-cast triggered paths:
 
 - `TurnEngine.castAction` notifies `TriggeredAbilityEngine.afterOpponentCast` after a spell has successfully resolved through the simulator's cast flow.
+- `TurnEngine.tryCastCommander` also notifies `TriggeredAbilityEngine.afterOpponentCast` after a commander is successfully cast through the commander-cast path. Failed or skipped commander casts do not open opponent-cast trigger windows.
 - `TriggeredAbilityEngine` currently checks for three narrow draw-tax-style paths controlled by opponents of the casting player: Rhystic Study-style opponent-cast triggers, Mystic Remora-style opponent noncreature-cast triggers, and Esper Sentinel-style opponent noncreature-cast triggers.
 - Rhystic Study-style windows open only when the cast spell is interaction-relevant, such as a high-impact spell, win condition, stax piece, board wipe, combo-wincon, or a spell with mana value 4 or greater.
 - The window records source player, source card, casting/target player, cast-card debug metadata, impact score, and a reason.
@@ -145,7 +146,7 @@ Steps 6 through 8 add narrow opponent-cast triggered paths:
 - If the trigger is stopped, the draw is skipped and stack/priority/history records the stopped trigger.
 - If the original spell is stopped before the simulator reaches the successful-cast hook, the Rhystic-style trigger does not open and does not draw.
 - Tutor spells that pass through the same successful `cast_tutor` hook may create Rhystic-style trigger windows when they meet the current gating rules.
-- Commander casts are not fully wired into this path yet because `tryCastCommander` does not currently use the same opponent-cast hook.
+- Commander casts that pass through the successful `tryCastCommander` hook may create Rhystic-style trigger windows when they meet the current Rhystic impact gate. Mystic Remora-style and Esper Sentinel-style triggers still use their current noncreature gates, so normal creature commanders usually do not trigger them.
 - Multiple Rhystic-style controllers can create sequential trigger windows in current table order.
 - `TriggeredAbilityEngine` also looks for `Mystic Remora` or a Mystic Remora-style tag-gated equivalent controlled by an opponent of the casting player.
 - Mystic Remora-style windows open for opponent noncreature spells. Current noncreature classification treats explicit creature type lines or `creature` tags as creature casts; known noncreature type lines are accepted; missing type data is conservative unless action/tag metadata clearly says noncreature.
@@ -157,7 +158,6 @@ Steps 6 through 8 add narrow opponent-cast triggered paths:
 - If a player controls Rhystic Study-style, Mystic Remora-style, and Esper Sentinel-style permanents, a high-impact noncreature spell can create one spell window plus one trigger window for each qualifying permanent. This is expected and should not double-count beyond one window per source trigger.
 - Low-mana-value noncreature spells may open Mystic Remora-style windows even when the same cast does not open a Rhystic Study-style window, because Rhystic's current path is impact-gated while Mystic's path is noncreature-gated.
 - Ambiguous casts with no type line and no clear action/tag metadata do not open Mystic Remora-style windows. This conservative fallback avoids treating unknown card data as a noncreature spell.
-- Commander casts are not fully wired into opponent-cast triggered windows yet because `tryCastCommander` does not currently use the same hook. Future work can route commander casts through `afterOpponentCast` once the simulator has a safe commander-cast event contract.
 
 This does not implement exact Rhystic Study, Mystic Remora, or Esper Sentinel tax payment rules yet. Opponents do not currently choose whether to pay a tax for these paths, and Esper Sentinel does not use exact power-based payment logic. The simulator only models the interaction-window opportunity around the heuristic draw trigger. Mystic Remora cumulative upkeep is also out of scope for this path. Low-impact casts currently do not open an extra Rhystic stack window, and not every draw-tax-style trigger is wired. Future work should broaden this one production path at a time.
 
