@@ -138,8 +138,8 @@ This is intentional Step 5 narrow wiring. Not every draw-tax trigger opens a sta
 Steps 6 through 8 add narrow opponent-cast triggered paths:
 
 - `TurnEngine.castAction` notifies `TriggeredAbilityEngine.afterOpponentCast` after a spell has successfully resolved through the simulator's cast flow.
-- `TriggeredAbilityEngine` currently looks only for `Rhystic Study` controlled by an opponent of the casting player.
-- The trigger opens a `WINDOW_TYPES.TRIGGERED_ABILITY` window only when the cast spell is interaction-relevant, such as a high-impact spell, win condition, stax piece, board wipe, combo-wincon, or a spell with mana value 4 or greater.
+- `TriggeredAbilityEngine` currently checks for three narrow draw-tax-style paths controlled by opponents of the casting player: Rhystic Study-style opponent-cast triggers, Mystic Remora-style opponent noncreature-cast triggers, and Esper Sentinel-style opponent noncreature-cast triggers.
+- Rhystic Study-style windows open only when the cast spell is interaction-relevant, such as a high-impact spell, win condition, stax piece, board wipe, combo-wincon, or a spell with mana value 4 or greater.
 - The window records source player, source card, casting/target player, cast-card debug metadata, impact score, and a reason.
 - If no one stops the trigger, the Rhystic controller may draw one card as the current heuristic benefit.
 - If the trigger is stopped, the draw is skipped and stack/priority/history records the stopped trigger.

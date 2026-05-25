@@ -47,7 +47,7 @@ The narrow activated/triggered window wiring has integration coverage for real T
 
 ## Step 6 Status
 
-Opponent-cast triggered wiring is implemented for a single Rhystic Study-style path. `TurnEngine.castAction` notifies `TriggeredAbilityEngine.afterOpponentCast` after a successful cast, and high-impact Rhystic Study triggers can now use the existing interaction window, stack object, priority pass, and one-deep counterplay flow.
+At Step 6, the first opponent-cast triggered wiring was implemented for the Rhystic Study-style path. `TurnEngine.castAction` notifies `TriggeredAbilityEngine.afterOpponentCast` after a successful cast, and high-impact Rhystic Study triggers can now use the existing interaction window, stack object, priority pass, and one-deep counterplay flow.
 
 ## Step 6.5 Status
 
@@ -64,6 +64,8 @@ Mystic Remora-style trigger behavior is hardened with coexistence coverage for R
 ## Step 8 Status
 
 Esper Sentinel-style opponent-cast trigger behavior is implemented through the existing `TurnEngine.castAction` -> `TriggeredAbilityEngine.afterOpponentCast` hook. The path opens triggered windows for a caster's first qualifying opponent noncreature spell in the current simulator turn key, draws one card if the window resolves, skips the draw if stopped, and keeps exact power-based payment/tax logic out of scope.
+
+Current opponent-cast production coverage is limited to Rhystic Study-style, Mystic Remora-style, and Esper Sentinel-style heuristic draw-tax paths. Exact tax/payment modeling and commander-cast hook coverage remain future work.
 
 ## Next Target
 
